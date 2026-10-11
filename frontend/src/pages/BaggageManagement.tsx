@@ -2,11 +2,14 @@ import { useEffect, useState, useCallback } from 'react';
 import { api } from '../api/client';
 import type { BaggageDto, FlightDto, RoutingRecord } from '../types';
 
-function fmtTime(iso: string): string {
+function fmtTime(iso: string | undefined): string {
+  if (!iso) return '—';
   try { return new Date(iso).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }); }
   catch { return iso; }
 }
-function fmtDateTime(iso: string): string {
+
+function fmtDateTime(iso: string | undefined): string {
+  if (!iso) return '—';
   try { return new Date(iso).toLocaleString('en-GB', { dateStyle: 'short', timeStyle: 'short' }); }
   catch { return iso; }
 }
@@ -20,7 +23,6 @@ interface ExpandedBaggage {
 export default function BaggageManagement() {
   const [allBaggage, setAllBaggage] = useState<BaggageDto[]>([]);
   const [flights, setFlights]       = useState<FlightDto[]>([]);
-  const [queue, setQueue]           = useState<BaggageDto[]>([]);
   const [loading, setLoading]       = useState(true);
   const [error, setError]           = useState<string | null>(null);
   const [lastRefresh, setLastRefresh] = useState(new Date());
@@ -38,18 +40,16 @@ export default function BaggageManagement() {
 
   const loadData = useCallback(async () => {
     try {
-      const [bags, fls, q] = await Promise.all([
+      const [bags, fls] = await Promise.all([
         api.getAllBaggage(),
         api.getAllFlights(),
-        api.getBaggageQueue(),
       ]);
-      setAllBaggage(bags as BaggageDto[]);
-      setFlights(fls as FlightDto[]);
-      setQueue(q as BaggageDto[]);
+      setAllBaggage(Array.isArray(bags) ? (bags as BaggageDto[]) : []);
+      setFlights(Array.isArray(fls) ? (fls as FlightDto[]) : []);
       setError(null);
       setLastRefresh(new Date());
     } catch {
-      setError('Failed to load baggage data.');
+      setError('Failed to load baggage data from backend.');
     } finally {
       setLoading(false);
     }
@@ -57,7 +57,7 @@ export default function BaggageManagement() {
 
   useEffect(() => {
     loadData();
-    const id = setInterval(loadData, 15000);
+    const id = setInterval(loadData, 8000);
     return () => clearInterval(id);
   }, [loadData]);
 
@@ -70,7 +70,7 @@ export default function BaggageManagement() {
     setExpanded(exp);
     try {
       const h = await api.getRoutingHistory(bag.baggageId);
-      setExpanded({ baggageId: bag.baggageId, history: h as RoutingRecord[], loadingHistory: false });
+      setExpanded({ baggageId: bag.baggageId, history: Array.isArray(h) ? (h as RoutingRecord[]) : [], loadingHistory: false });
     } catch {
       setExpanded({ baggageId: bag.baggageId, history: [], loadingHistory: false });
     }
@@ -82,26 +82,28 @@ export default function BaggageManagement() {
       await action();
       await loadData();
     } catch {
-      // silent
+      // notification
     } finally {
       setActionPending(null);
     }
   };
 
   const filtered = allBaggage.filter(b => {
-    if (statusFilter !== 'ALL' && b.status !== statusFilter) return false;
-    if (flightFilter !== 'ALL' && b.flightId !== flightFilter) return false;
+    const status = b.baggageProcessingStatus || b.status || '';
+    const flight = b.flightNumber || b.assignedFlightId || b.flightId || '';
+    if (statusFilter !== 'ALL' && status !== statusFilter) return false;
+    if (flightFilter !== 'ALL' && flight !== flightFilter) return false;
     if (search && !b.baggageId.toLowerCase().includes(search.toLowerCase())) return false;
     return true;
   });
 
-  const uniqueStatuses = Array.from(new Set(allBaggage.map(b => b.status)));
-  const uniqueFlights  = Array.from(new Set(allBaggage.map(b => b.flightId)));
+  const uniqueStatuses = Array.from(new Set(allBaggage.map(b => b.baggageProcessingStatus || b.status || 'READY')));
+  const uniqueFlights  = Array.from(new Set(allBaggage.map(b => b.flightNumber || b.assignedFlightId || b.flightId || ''))).filter(Boolean);
 
   if (loading) return (
     <div className="loading-container">
       <div className="spinner" />
-      <span>Loading baggage data…</span>
+      <span>Loading baggage inventory…</span>
     </div>
   );
 
@@ -109,12 +111,12 @@ export default function BaggageManagement() {
     <div>
       <div className="page-header">
         <div>
-          <div className="page-title">🧳 Baggage Management</div>
-          <div className="page-subtitle">{allBaggage.length} total bags · {filtered.length} shown</div>
+          <div className="page-title">🧳 Baggage Tracking & Clearance</div>
+          <div className="page-subtitle">{allBaggage.length} total bags in system · {filtered.length} currently displayed</div>
         </div>
         <div className="refresh-indicator">
           <div className="refresh-dot" />
-          <span>Auto-refresh 15s · {lastRefresh.toLocaleTimeString()}</span>
+          <span>Live Sync 8s · {lastRefresh.toLocaleTimeString()}</span>
         </div>
       </div>
 
@@ -122,238 +124,232 @@ export default function BaggageManagement() {
 
       <div className="filters-bar">
         <div className="form-group search-input-wrap">
-          <label className="form-label">Search by ID</label>
-          <input type="search" placeholder="BAG-…" value={search} onChange={e => setSearch(e.target.value)} />
+          <label className="form-label">Search by Luggage ID</label>
+          <input type="search" placeholder="e.g. BAG-1001" value={search} onChange={e => setSearch(e.target.value)} />
         </div>
         <div className="form-group">
-          <label className="form-label">Status</label>
+          <label className="form-label">Filter by Status</label>
           <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)}>
-            <option value="ALL">All Statuses</option>
-            {uniqueStatuses.map(s => <option key={s} value={s}>{s.replace('_', ' ')}</option>)}
+            <option value="ALL">All Statuses ({allBaggage.length})</option>
+            {uniqueStatuses.map(s => <option key={s} value={s}>{s.replace(/_/g, ' ')}</option>)}
           </select>
         </div>
         <div className="form-group">
-          <label className="form-label">Flight</label>
+          <label className="form-label">Filter by Flight</label>
           <select value={flightFilter} onChange={e => setFlightFilter(e.target.value)}>
-            <option value="ALL">All Flights</option>
+            <option value="ALL">All Flights ({flights.length})</option>
             {uniqueFlights.map(f => <option key={f} value={f}>{f}</option>)}
           </select>
         </div>
         <button className="btn btn-ghost btn-sm" onClick={loadData}>↻ Refresh</button>
       </div>
 
-      <div className="two-col" style={{ alignItems: 'start', marginBottom: 20 }}>
-        {/* Main table */}
-        <div className="card" style={{ gridColumn: '1 / -1' }}>
-          <div className="card-header">
-            <span className="card-title">🧳 Baggage Items</span>
-            <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>{filtered.length} results</span>
-          </div>
-          <div className="table-container">
-            <table>
-              <thead>
-                <tr>
-                  <th>Bag ID</th>
-                  <th>Type</th>
-                  <th>Flight</th>
-                  <th>Location</th>
-                  <th>Category</th>
-                  <th>Status</th>
-                  <th>Cutoff</th>
-                  <th>Clearance</th>
-                  <th>Actions</th>
+      {/* Main table */}
+      <div className="card" style={{ marginBottom: 20 }}>
+        <div className="card-header">
+          <span className="card-title">🧳 Luggage Inventory</span>
+          <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>{filtered.length} records matching</span>
+        </div>
+        <div className="table-container">
+          <table>
+            <thead>
+              <tr>
+                <th>Bag ID</th>
+                <th>Type</th>
+                <th>Flight</th>
+                <th>Current Location</th>
+                <th>Category</th>
+                <th>Status</th>
+                <th>Loading Cutoff</th>
+                <th>Clearance</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.length === 0 ? (
+                <tr style={{ cursor: 'default' }}>
+                  <td colSpan={9} className="empty-state">No baggage records matching filters</td>
                 </tr>
-              </thead>
-              <tbody>
-                {filtered.length === 0 ? (
-                  <tr style={{ cursor: 'default' }}>
-                    <td colSpan={9} className="empty-state">No baggage matches filter</td>
+              ) : filtered.map(bag => {
+                const status = bag.baggageProcessingStatus || bag.status || 'READY';
+                const hasClearance = bag.operatorClearance ?? false;
+
+                return (
+                  <tr key={bag.baggageId} style={{ cursor: 'pointer' }} onClick={() => toggleExpand(bag)}>
+                    <td className="td-mono">{bag.baggageId}</td>
+                    <td>
+                      <span className={`badge badge-${bag.bagType === 'TRANSFER' ? 'TRANSFER' : 'STANDARD'}`}>
+                        {bag.bagType || (bag.transferStatus ? 'TRANSFER' : 'ORIGIN')}
+                      </span>
+                    </td>
+                    <td style={{ color: 'var(--accent-blue)', fontFamily: 'monospace', fontWeight: 600 }}>
+                      {bag.flightNumber || bag.assignedFlightId}
+                    </td>
+                    <td>
+                      <span className="badge" style={{ background: '#193050', color: '#90caf9' }}>
+                        {bag.currentLocation}
+                      </span>
+                    </td>
+                    <td>
+                      <span className={`badge badge-${bag.passengerCategory || bag.category || 'ECONOMY'}`}>
+                        {bag.passengerCategory || bag.category}
+                      </span>
+                    </td>
+                    <td>
+                      <span className={`badge badge-${status}`}>
+                        {status.replace(/_/g, ' ')}
+                      </span>
+                    </td>
+                    <td style={{ color: status === 'AT_RISK' || status === 'MISSED_CUTOFF' ? 'var(--accent-red)' : 'var(--text-primary)', fontWeight: 600 }}>
+                      {fmtTime(bag.loadingCutoff || bag.cutoffTime)}
+                    </td>
+                    <td>
+                      <span className={hasClearance ? 'clearance-yes' : 'clearance-no'} style={{ fontWeight: 600 }}>
+                        {hasClearance ? '✓ Cleared' : '✗ Awaiting'}
+                      </span>
+                    </td>
+                    <td onClick={e => e.stopPropagation()}>
+                      <div style={{ display: 'flex', gap: 6 }}>
+                        {!hasClearance ? (
+                          <button
+                            className="btn btn-success btn-sm"
+                            title="Grant Security Clearance"
+                            disabled={actionPending === `grant-${bag.baggageId}`}
+                            onClick={() => doAction(() => api.grantClearance(bag.baggageId), `grant-${bag.baggageId}`)}
+                          >
+                            ✓ Clear
+                          </button>
+                        ) : (
+                          <button
+                            className="btn btn-warning btn-sm"
+                            title="Revoke Security Clearance"
+                            disabled={actionPending === `revoke-${bag.baggageId}`}
+                            onClick={() => doAction(() => api.revokeClearance(bag.baggageId), `revoke-${bag.baggageId}`)}
+                          >
+                            ⛔ Revoke
+                          </button>
+                        )}
+                        <button
+                          className="btn btn-primary btn-sm"
+                          title="Dynamic Shortest-Path Reroute"
+                          disabled={actionPending === `reroute-${bag.baggageId}`}
+                          onClick={() => doAction(() => api.rerouteBaggage(bag.baggageId), `reroute-${bag.baggageId}`)}
+                        >
+                          ↻ Reroute
+                        </button>
+                        <button
+                          className="btn btn-ghost btn-sm"
+                          title="Confirm Aircraft Loaded"
+                          disabled={actionPending === `loaded-${bag.baggageId}` || status === 'LOADED'}
+                          onClick={() => doAction(() => api.confirmLoaded(bag.baggageId), `loaded-${bag.baggageId}`)}
+                        >
+                          📦 Load
+                        </button>
+                      </div>
+                    </td>
                   </tr>
-                ) : filtered.map(bag => {
-                  const isExpanded = expanded?.baggageId === bag.baggageId;
-                  const baseKey = bag.baggageId;
-                  return (
-                    <>
-                      <tr
-                        key={bag.baggageId}
-                        className={isExpanded ? 'expanded' : ''}
-                        onClick={() => toggleExpand(bag)}
-                      >
-                        <td className="td-mono">{bag.baggageId}</td>
-                        <td><span className="badge badge-STANDARD" style={{ fontSize: 10 }}>{bag.baggageType}</span></td>
-                        <td style={{ color: 'var(--accent-blue)', fontFamily: 'monospace' }}>{bag.flightId}</td>
-                        <td style={{ maxWidth: 140, overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                          {bag.currentNodeName || bag.currentNodeId}
-                        </td>
-                        <td><span className={`badge badge-${bag.category}`}>{bag.category}</span></td>
-                        <td><span className={`badge badge-${bag.status}`}>{bag.status.replace(/_/g, ' ')}</span></td>
-                        <td style={{ color: bag.status === 'AT_RISK' || bag.status === 'MISSED_CUTOFF' ? 'var(--accent-red)' : 'var(--text-primary)' }}>
-                          {fmtTime(bag.cutoffTime)}
-                        </td>
-                        <td className={bag.clearanceGranted ? 'clearance-yes' : 'clearance-no'}>
-                          {bag.clearanceGranted ? '✓ Yes' : '✗ No'}
-                        </td>
-                        <td onClick={e => e.stopPropagation()}>
-                          <div style={{ display: 'flex', gap: 4 }}>
-                            {!bag.clearanceGranted ? (
-                              <button
-                                className="btn btn-success btn-sm"
-                                disabled={actionPending === `grant-${baseKey}`}
-                                onClick={() => doAction(() => api.grantClearance(bag.baggageId), `grant-${baseKey}`)}
-                              >✓</button>
-                            ) : (
-                              <button
-                                className="btn btn-warning btn-sm"
-                                disabled={actionPending === `revoke-${baseKey}`}
-                                onClick={() => doAction(() => api.revokeClearance(bag.baggageId), `revoke-${baseKey}`)}
-                              >⛔</button>
-                            )}
-                            <button
-                              className="btn btn-primary btn-sm"
-                              disabled={actionPending === `reroute-${baseKey}`}
-                              onClick={() => doAction(() => api.rerouteBaggage(bag.baggageId), `reroute-${baseKey}`)}
-                            >↻</button>
-                            <button
-                              className="btn btn-ghost btn-sm"
-                              disabled={actionPending === `loaded-${baseKey}` || bag.status === 'LOADED'}
-                              onClick={() => doAction(() => api.confirmLoaded(bag.baggageId), `loaded-${baseKey}`)}
-                            >📦</button>
-                          </div>
-                        </td>
-                      </tr>
-                      {isExpanded && (
-                        <tr key={`${bag.baggageId}-expanded`} className="expanded-row">
-                          <td colSpan={9}>
-                            <div className="expanded-content">
-                              <div className="expanded-grid">
-                                {/* Planned Route */}
-                                <div className="expanded-section">
-                                  <div className="expanded-section-title">📍 Planned Route</div>
-                                  {bag.plannedRoute && bag.plannedRoute.length > 0 ? (
-                                    <div className="route-path">
-                                      {bag.plannedRoute.map((n, i) => (
-                                        <span key={i} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                                          <span className="route-node">{n}</span>
-                                          {i < bag.plannedRoute.length - 1 && <span className="route-arrow">→</span>}
-                                        </span>
-                                      ))}
-                                    </div>
-                                  ) : (
-                                    <span style={{ color: 'var(--text-muted)', fontSize: 12 }}>No route planned</span>
-                                  )}
-                                  <div className="divider" />
-                                  <div className="info-grid" style={{ marginTop: 8 }}>
-                                    <div className="info-item">
-                                      <span className="info-label">Destination</span>
-                                      <span className="info-value">{bag.destinationNodeName || bag.destinationNodeId}</span>
-                                    </div>
-                                    <div className="info-item">
-                                      <span className="info-label">Passenger</span>
-                                      <span className="info-value" style={{ fontFamily: 'monospace', fontSize: 11 }}>{bag.passengerId}</span>
-                                    </div>
-                                    <div className="info-item">
-                                      <span className="info-label">Weight</span>
-                                      <span className="info-value">{bag.weightKg} kg</span>
-                                    </div>
-                                    <div className="info-item">
-                                      <span className="info-label">Tagged At</span>
-                                      <span className="info-value">{fmtTime(bag.taggedAt)}</span>
-                                    </div>
-                                  </div>
-                                </div>
-
-                                {/* Scan History */}
-                                <div className="expanded-section">
-                                  <div className="expanded-section-title">📡 Scan History ({bag.scanHistory?.length ?? 0})</div>
-                                  <div className="scan-list">
-                                    {bag.scanHistory && bag.scanHistory.length > 0 ? (
-                                      bag.scanHistory.map((s, i) => (
-                                        <div key={i} className="scan-item">
-                                          <span className="scan-node">{s.nodeName || s.nodeId}</span>
-                                          <span className="scan-time">{fmtDateTime(s.scannedAt)}</span>
-                                        </div>
-                                      ))
-                                    ) : (
-                                      <span style={{ color: 'var(--text-muted)', fontSize: 12 }}>No scans recorded</span>
-                                    )}
-                                  </div>
-                                </div>
-
-                                {/* Routing History */}
-                                <div className="expanded-section">
-                                  <div className="expanded-section-title">🗂️ Routing History</div>
-                                  {expanded?.loadingHistory ? (
-                                    <div style={{ color: 'var(--text-muted)', fontSize: 12 }}>Loading…</div>
-                                  ) : expanded?.history && expanded.history.length > 0 ? (
-                                    <div className="scan-list">
-                                      {expanded.history.map((r, i) => (
-                                        <div key={i} className="scan-item" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: 2 }}>
-                                          <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%' }}>
-                                            <span className="scan-node">{r.fromNodeId} → {r.toNodeId}</span>
-                                            <span className={r.success ? 'clearance-yes' : 'clearance-no'} style={{ fontSize: 10 }}>
-                                              {r.success ? '✓' : '✗'}
-                                            </span>
-                                          </div>
-                                          <div style={{ color: 'var(--text-muted)', fontSize: 10 }}>
-                                            {r.reason} · {r.travelTimeSeconds}s · {fmtDateTime(r.routedAt)}
-                                          </div>
-                                        </div>
-                                      ))}
-                                    </div>
-                                  ) : (
-                                    <span style={{ color: 'var(--text-muted)', fontSize: 12 }}>No routing records</span>
-                                  )}
-                                </div>
-                              </div>
-                            </div>
-                          </td>
-                        </tr>
-                      )}
-                    </>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+                );
+              })}
+            </tbody>
+          </table>
         </div>
       </div>
 
-      {/* Queue panel */}
-      <div className="card">
-        <div className="card-header">
-          <span className="card-title">🚦 Dispatch Queue ({queue.length})</span>
-        </div>
-        {queue.length === 0 ? (
-          <div className="empty-state">Queue is empty</div>
-        ) : (
-          <div className="queue-list">
-            {queue.map((bag, idx) => (
-              <div key={bag.baggageId} className="queue-item">
-                <div className="queue-rank">{idx + 1}</div>
-                <div className="queue-info">
-                  <div className="queue-id">{bag.baggageId}</div>
-                  <div className="queue-meta">
-                    {bag.flightId} · {bag.category} · Cutoff {fmtTime(bag.cutoffTime)} · {bag.currentNodeName}
+      {/* Expanded Detail Modal / Drawer */}
+      {expanded && (
+        <div className="card" style={{ border: '2px solid var(--accent-blue)', marginBottom: 24, background: '#0e1d35' }}>
+          <div className="card-header">
+            <span className="card-title">🔍 Detail & Audit Trail for {expanded.baggageId}</span>
+            <button className="btn btn-ghost btn-sm" onClick={() => setExpanded(null)}>✕ Close</button>
+          </div>
+          {(() => {
+            const currentBag = allBaggage.find(b => b.baggageId === expanded.baggageId);
+            if (!currentBag) return null;
+            const routeSteps = currentBag.plannedRoute
+              ? currentBag.plannedRoute.split('->').map(s => s.trim()).filter(Boolean)
+              : [];
+
+            return (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                <div>
+                  <div style={{ fontSize: 12, textTransform: 'uppercase', letterSpacing: 1, color: 'var(--text-muted)', marginBottom: 8 }}>
+                    Current Planned Conveyor Route
+                  </div>
+                  {routeSteps.length > 0 ? (
+                    <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 8 }}>
+                      {routeSteps.map((node, i) => (
+                        <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                          <span style={{ padding: '6px 12px', background: '#1c3456', borderRadius: 6, color: '#90caf9', fontWeight: 600 }}>
+                            {node}
+                          </span>
+                          {i < routeSteps.length - 1 && <span style={{ color: 'var(--text-muted)' }}>➔</span>}
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <span style={{ color: 'var(--text-muted)' }}>No planned route active</span>
+                  )}
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12, background: '#122542', padding: 16, borderRadius: 8 }}>
+                  <div>
+                    <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Target Bay</div>
+                    <div style={{ fontSize: 14, fontWeight: 700, color: '#fff' }}>{currentBag.destinationBayId} ({currentBag.destinationBayName})</div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Est. Remaining Travel Time</div>
+                    <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--accent-teal)' }}>{currentBag.estimatedRemainingTravelTime}s</div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Check-in Arrival Time</div>
+                    <div style={{ fontSize: 14, fontWeight: 700, color: '#fff' }}>{fmtDateTime(currentBag.arrivalTime)}</div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Scan History</div>
+                    <div style={{ fontSize: 13, color: '#e0e0e0' }}>{currentBag.scanHistory || 'None'}</div>
                   </div>
                 </div>
-                <span className={`badge badge-${bag.status}`}>{bag.status.replace('_', ' ')}</span>
+
+                <div>
+                  <div style={{ fontSize: 12, textTransform: 'uppercase', letterSpacing: 1, color: 'var(--text-muted)', marginBottom: 8 }}>
+                    Routing Audit Events ({expanded.history.length})
+                  </div>
+                  {expanded.loadingHistory ? (
+                    <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>Loading routing records...</div>
+                  ) : expanded.history.length === 0 ? (
+                    <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>No dynamic reroute events logged yet for this luggage item.</div>
+                  ) : (
+                    <div className="table-container">
+                      <table>
+                        <thead>
+                          <tr>
+                            <th>Time</th>
+                            <th>Event Reason</th>
+                            <th>Checkpoint</th>
+                            <th>Remaining Time</th>
+                            <th>Status</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {expanded.history.map((rec, i) => (
+                            <tr key={i}>
+                              <td>{fmtTime(rec.timestamp)}</td>
+                              <td><span className="badge" style={{ background: '#183556', color: '#64b5f6' }}>{rec.routingReason}</span></td>
+                              <td className="td-mono">{rec.lastConfirmedNode}</td>
+                              <td>{rec.totalEstimatedTravelTime}s</td>
+                              <td><span className="badge badge-READY">{rec.routingResult}</span></td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
               </div>
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* Legend */}
-      <div style={{ marginTop: 16, display: 'flex', gap: 8, flexWrap: 'wrap', fontSize: 11, color: 'var(--text-muted)' }}>
-        <span>Action buttons: <strong style={{ color: 'var(--accent-green)' }}>✓</strong> Grant Clearance ·
-          <strong style={{ color: 'var(--accent-amber)' }}> ⛔</strong> Revoke ·
-          <strong style={{ color: 'var(--accent-blue)' }}> ↻</strong> Reroute ·
-          <strong> 📦</strong> Confirm Loaded</span>
-        <span style={{ marginLeft: 'auto' }}>Click row to expand details</span>
-      </div>
-
-      {/* Flights filter reference */}
-      <div style={{ marginTop: 8, display: 'none' }}>{flights.length}</div>
+            );
+          })()}
+        </div>
+      )}
     </div>
   );
 }

@@ -132,13 +132,13 @@ export default function RoutingCalculator() {
                 </div>
               )}
 
-              {routeResult.path && routeResult.path.length > 0 && (
+              {((routeResult.nodeSequence && routeResult.nodeSequence.length > 0) || (routeResult.path && routeResult.path.length > 0)) && (
                 <div>
                   <div style={{ fontSize: 12, textTransform: 'uppercase', letterSpacing: 1, color: 'var(--text-muted)', marginBottom: 8 }}>
-                    Conveyor Node Sequence ({routeResult.path.length} hops)
+                    Conveyor Node Sequence ({(routeResult.nodeSequence || routeResult.path || []).length} hops)
                   </div>
                   <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 8 }}>
-                    {routeResult.path.map((node, idx) => (
+                    {(routeResult.nodeSequence || routeResult.path || []).map((node, idx, arr) => (
                       <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                         <span style={{
                           padding: '6px 12px',
@@ -151,7 +151,7 @@ export default function RoutingCalculator() {
                         }}>
                           {node}
                         </span>
-                        {idx < routeResult.path.length - 1 && (
+                        {idx < arr.length - 1 && (
                           <span style={{ color: 'var(--text-muted)' }}>➔</span>
                         )}
                       </div>

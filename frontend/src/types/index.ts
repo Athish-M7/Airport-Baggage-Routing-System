@@ -1,79 +1,85 @@
 export type BaggageStatus =
+  | 'AWAITING_CLEARANCE'
   | 'READY'
   | 'IN_TRANSIT'
   | 'AT_RISK'
   | 'MISSED_CUTOFF'
   | 'LOADED'
-  | 'AWAITING_CLEARANCE'
   | 'UNREACHABLE';
 
-export type BaggageCategory = 'STANDARD' | 'PRIORITY' | 'FRAGILE' | 'OVERSIZED' | 'DIPLOMATIC';
-
-export type BaggageType = 'CHECKED' | 'CARRY_ON' | 'TRANSFER';
-
-export interface ScanRecord {
-  nodeId: string;
-  nodeName: string;
-  scannedAt: string;
-}
+export type PassengerCategory = 'FIRST' | 'BUSINESS' | 'FREQUENT_FLYER' | 'ECONOMY';
 
 export interface BaggageDto {
   baggageId: string;
-  passengerId: string;
-  flightId: string;
-  baggageType: BaggageType;
-  category: BaggageCategory;
-  status: BaggageStatus;
-  currentNodeId: string;
-  currentNodeName: string;
-  destinationNodeId: string;
-  destinationNodeName: string;
-  plannedRoute: string[];
-  scanHistory: ScanRecord[];
-  cutoffTime: string;
-  clearanceGranted: boolean;
-  weightKg: number;
-  taggedAt: string;
+  bagType: 'ORIGIN' | 'TRANSFER';
+  assignedFlightId: string;
+  flightNumber: string;
+  currentLocation: string;
+  destinationBayId: string;
+  destinationBayName: string;
+  passengerCategory: PassengerCategory;
+  declaredCategoryRank: number;
+  transferStatus: boolean;
+  arrivalOrder: number;
+  arrivalTime: string;
+  operatorClearance: boolean;
+  baggageProcessingStatus: BaggageStatus;
+  plannedRoute: string;
+  estimatedRemainingTravelTime: number;
+  loadingCutoff: string;
+  scanHistory: string;
+
+  // Compatibility aliases
+  status?: BaggageStatus;
+  flightId?: string;
+  category?: PassengerCategory;
+  cutoffTime?: string;
 }
 
-export type FlightStatus = 'SCHEDULED' | 'BOARDING' | 'DEPARTED' | 'DELAYED' | 'CANCELLED';
+export type FlightStatus = 'SCHEDULED' | 'BOARDING' | 'DEPARTED' | 'DELAYED';
 
 export interface FlightDto {
   flightId: string;
   flightNumber: string;
   destination: string;
-  destinationCode: string;
   departureTime: string;
-  baggageCutoffTime: string;
-  boardingGate: string;
-  baggageBayNode: string;
-  status: FlightStatus;
-  baggageCount: number;
-  loadedCount: number;
+  loadingCutoff: string;
+  assignedBayId: string;
+  bayName: string;
+  flightStatus: FlightStatus;
+
+  // Compatibility aliases
+  status?: FlightStatus;
+  baggageCount?: number;
+  loadedCount?: number;
 }
 
 export type NodeType = 'CHECKIN' | 'JUNCTION' | 'SECURITY' | 'TRANSFER' | 'BAY' | 'SORTING';
 
 export interface ConveyorNodeDto {
   nodeId: string;
-  name: string;
-  type: NodeType;
+  nodeName: string;
+  nodeType: NodeType;
   xPos: number;
   yPos: number;
-  capacity: number;
-  currentLoad: number;
+
+  // Compatibility aliases
+  name?: string;
+  type?: NodeType;
 }
 
 export interface ConveyorSegmentDto {
   segmentId: string;
-  fromNodeId: string;
-  toNodeId: string;
-  fromNodeName: string;
-  toNodeName: string;
+  sourceNode: string;
+  destinationNode: string;
   travelTimeSeconds: number;
   available: boolean;
-  bidirectional: boolean;
-  distanceMeters: number;
+
+  // Compatibility aliases
+  fromNodeId?: string;
+  toNodeId?: string;
+  distanceMeters?: number;
+  bidirectional?: boolean;
 }
 
 export interface DashboardStatsDto {
@@ -82,39 +88,52 @@ export interface DashboardStatsDto {
   inTransitCount: number;
   atRiskCount: number;
   loadedCount: number;
-  missedCutoffCount: number;
   awaitingClearanceCount: number;
+  missedCutoffCount: number;
   unreachableCount: number;
-  activeFlights: number;
-  boardingFlights: number;
-  avgRoutingTimeSeconds: number;
+  flightCount: number;
+  activeSegmentCount: number;
+  failedSegmentCount: number;
+  nodeCount: number;
+
+  // Compatibility aliases
+  activeFlights?: number;
+  boardingFlights?: number;
+  avgRoutingTimeSeconds?: number;
 }
 
 export interface SimulationStateDto {
-  simulationTime: string;
+  currentSimulatedTime: string;
   running: boolean;
   speedMultiplier: number;
-  totalEventsProcessed: number;
-  simulationDay: number;
+
+  // Compatibility aliases
+  simulationTime?: string;
 }
 
 export interface RouteResponseDto {
   success: boolean;
-  startNode: string;
-  destinationNode: string;
-  path: string[];
-  pathNames: string[];
+  formattedRoute: string;
+  nodeSequence: string[];
+  segmentSequence: string[];
   totalTravelTimeSeconds: number;
-  segmentCount: number;
+  status: string;
   message?: string;
+
+  // Compatibility aliases
+  startNode?: string;
+  destinationNode?: string;
+  path?: string[];
 }
 
 export interface RoutingRecord {
+  recordId?: number;
   baggageId: string;
-  fromNodeId: string;
-  toNodeId: string;
-  routedAt: string;
-  reason: string;
-  success: boolean;
-  travelTimeSeconds: number;
+  previousRoute: string;
+  newRoute: string;
+  lastConfirmedNode: string;
+  totalEstimatedTravelTime: number;
+  routingReason: string;
+  timestamp: string;
+  routingResult: string;
 }

@@ -71,12 +71,12 @@ export default function Sidebar() {
       <div className="sidebar-clock">
         <div className="sidebar-clock-label">Sim Clock</div>
         <div className="sidebar-clock-time">
-          {simState ? formatSimTime(simState.simulationTime) : '--:--:--'}
+          {simState ? formatSimTime(simState.currentSimulatedTime || simState.simulationTime || '') : '--:--:--'}
         </div>
         {simState && (
           <>
             <div style={{ fontSize: '10px', color: 'var(--text-dim)', marginTop: 2 }}>
-              {formatSimDate(simState.simulationTime)}
+              {formatSimDate(simState.currentSimulatedTime || simState.simulationTime || '')}
             </div>
             <div className="sidebar-clock-speed">
               {simState.speedMultiplier}x speed

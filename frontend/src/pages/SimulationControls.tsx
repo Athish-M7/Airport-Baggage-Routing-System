@@ -84,8 +84,9 @@ export default function SimulationControls() {
     );
   }
 
-  const simTimeDisplay = state?.simulationTime
-    ? new Date(state.simulationTime).toLocaleString('en-GB', {
+  const timeValue = state?.currentSimulatedTime || state?.simulationTime;
+  const simTimeDisplay = timeValue
+    ? new Date(timeValue).toLocaleString('en-GB', {
         dateStyle: 'medium',
         timeStyle: 'medium',
       })

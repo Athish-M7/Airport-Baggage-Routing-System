@@ -2,8 +2,8 @@ import { useEffect, useState, useCallback } from 'react';
 import { api } from '../api/client';
 import type { DashboardStatsDto, FlightDto, BaggageDto } from '../types';
 
-
-function fmtTime(iso: string): string {
+function fmtTime(iso: string | undefined): string {
+  if (!iso) return '—';
   try {
     return new Date(iso).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
   } catch { return iso; }
@@ -19,7 +19,7 @@ interface StatCardProps {
 function StatCard({ label, value, color, icon }: StatCardProps) {
   return (
     <div className={`stat-card ${color}`}>
-      <div className="stat-value">{value}</div>
+      <div className="stat-value">{value ?? 0}</div>
       <div className="stat-label">{icon} {label}</div>
     </div>
   );
@@ -41,12 +41,12 @@ export default function Dashboard() {
         api.getBaggageQueue(),
       ]);
       setStats(statsData as DashboardStatsDto);
-      setFlights((flightsData as FlightDto[]).slice(0, 10));
-      setQueue((queueData as BaggageDto[]).slice(0, 5));
+      setFlights(Array.isArray(flightsData) ? (flightsData as FlightDto[]) : []);
+      setQueue(Array.isArray(queueData) ? (queueData as BaggageDto[]).slice(0, 5) : []);
       setError(null);
       setLastRefresh(new Date());
-    } catch (e) {
-      setError('Failed to load dashboard data. Is the backend running?');
+    } catch {
+      setError('Connecting to Vaanam Airport backend API...');
     } finally {
       setLoading(false);
     }
@@ -54,11 +54,11 @@ export default function Dashboard() {
 
   useEffect(() => {
     loadData();
-    const id = setInterval(loadData, 10000);
+    const id = setInterval(loadData, 5000);
     return () => clearInterval(id);
   }, [loadData]);
 
-  const flightStatusColor = (status: string) => {
+  const flightStatusColor = (status: string | undefined) => {
     switch (status) {
       case 'BOARDING':   return 'var(--accent-amber)';
       case 'SCHEDULED':  return 'var(--accent-blue)';
@@ -72,7 +72,7 @@ export default function Dashboard() {
     return (
       <div className="loading-container">
         <div className="spinner" />
-        <span>Loading dashboard…</span>
+        <span>Connecting to Operations Dashboard…</span>
       </div>
     );
   }
@@ -82,11 +82,11 @@ export default function Dashboard() {
       <div className="page-header">
         <div>
           <div className="page-title">📊 Operations Dashboard</div>
-          <div className="page-subtitle">Vaanam Airport — Real-time baggage routing overview</div>
+          <div className="page-subtitle">Vaanam Airport — Real-time baggage routing & throughput monitoring</div>
         </div>
         <div className="refresh-indicator">
           <div className="refresh-dot" />
-          <span>Auto-refresh 10s · Last: {lastRefresh.toLocaleTimeString()}</span>
+          <span>Live Sync 5s · {lastRefresh.toLocaleTimeString()}</span>
         </div>
       </div>
 
@@ -94,14 +94,14 @@ export default function Dashboard() {
 
       {stats && (
         <div className="stats-grid">
-          <StatCard label="Total Bags"       value={stats.totalBaggage}           color="blue"   icon="🧳" />
-          <StatCard label="Ready"            value={stats.readyCount}             color="green"  icon="✅" />
-          <StatCard label="In Transit"       value={stats.inTransitCount}         color="teal"   icon="🚌" />
-          <StatCard label="At Risk"          value={stats.atRiskCount}            color="amber"  icon="⚠️" />
-          <StatCard label="Loaded"           value={stats.loadedCount}            color="gray"   icon="📦" />
-          <StatCard label="Missed Cutoff"    value={stats.missedCutoffCount}      color="red"    icon="🚨" />
-          <StatCard label="Awaiting Clear."  value={stats.awaitingClearanceCount} color="orange" icon="🔒" />
-          <StatCard label="Active Flights"   value={stats.activeFlights}          color="purple" icon="✈️" />
+          <StatCard label="Total Luggage"     value={stats.totalBaggage}           color="blue"   icon="🧳" />
+          <StatCard label="Ready for Transit" value={stats.readyCount}             color="green"  icon="✅" />
+          <StatCard label="On Conveyor Belts" value={stats.inTransitCount}         color="teal"   icon="🚚" />
+          <StatCard label="At Risk (< Cutoff)"value={stats.atRiskCount}            color="amber"  icon="⚠️" />
+          <StatCard label="Loaded on Flights" value={stats.loadedCount}            color="gray"   icon="📦" />
+          <StatCard label="Missed Cutoff"     value={stats.missedCutoffCount}      color="red"    icon="🚨" />
+          <StatCard label="Awaiting Security" value={stats.awaitingClearanceCount} color="orange" icon="🔒" />
+          <StatCard label="Scheduled Flights" value={stats.flightCount}            color="purple" icon="✈️" />
         </div>
       )}
 
@@ -109,8 +109,8 @@ export default function Dashboard() {
         {/* Flights overview */}
         <div className="card">
           <div className="card-header">
-            <span className="card-title">✈️ Flight Overview</span>
-            <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>{flights.length} flights</span>
+            <span className="card-title">✈️ Scheduled Flights</span>
+            <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>{flights.length} flights scheduled</span>
           </div>
           <div className="table-container">
             <table>
@@ -119,29 +119,31 @@ export default function Dashboard() {
                   <th>Flight</th>
                   <th>Destination</th>
                   <th>Departure</th>
+                  <th>Cutoff</th>
+                  <th>Loading Bay</th>
                   <th>Status</th>
-                  <th>Bags</th>
                 </tr>
               </thead>
               <tbody>
                 {flights.length === 0 ? (
-                  <tr><td colSpan={5} className="empty-state">No flights</td></tr>
-                ) : flights.map(f => (
-                  <tr key={f.flightId} style={{ cursor: 'default' }}>
-                    <td className="td-mono">{f.flightNumber}</td>
-                    <td>{f.destination} <span style={{ color: 'var(--text-muted)', fontSize: 11 }}>({f.destinationCode})</span></td>
-                    <td>{fmtTime(f.departureTime)}</td>
-                    <td>
-                      <span className="badge" style={{ color: flightStatusColor(f.status), border: `1px solid ${flightStatusColor(f.status)}40`, background: `${flightStatusColor(f.status)}18` }}>
-                        {f.status}
-                      </span>
-                    </td>
-                    <td>
-                      <span style={{ color: 'var(--accent-green)', fontWeight: 700 }}>{f.loadedCount}</span>
-                      <span style={{ color: 'var(--text-muted)' }}>/{f.baggageCount}</span>
-                    </td>
-                  </tr>
-                ))}
+                  <tr><td colSpan={6} className="empty-state">No flight data available</td></tr>
+                ) : flights.map(f => {
+                  const status = f.flightStatus || f.status || 'SCHEDULED';
+                  return (
+                    <tr key={f.flightId} style={{ cursor: 'default' }}>
+                      <td className="td-mono">{f.flightNumber}</td>
+                      <td>{f.destination}</td>
+                      <td>{fmtTime(f.departureTime)}</td>
+                      <td>{fmtTime(f.loadingCutoff)}</td>
+                      <td><span className="badge" style={{ background: '#1c314e', color: '#64b5f6' }}>{f.assignedBayId} ({f.bayName})</span></td>
+                      <td>
+                        <span className="badge" style={{ color: flightStatusColor(status), border: `1px solid ${flightStatusColor(status)}40`, background: `${flightStatusColor(status)}18` }}>
+                          {status}
+                        </span>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -150,24 +152,27 @@ export default function Dashboard() {
         {/* Dispatch Queue */}
         <div className="card">
           <div className="card-header">
-            <span className="card-title">🚦 Dispatch Queue (Top 5)</span>
+            <span className="card-title">🚦 Priority Dispatch Queue (Top 5)</span>
           </div>
           {queue.length === 0 ? (
-            <div className="empty-state">Queue is empty</div>
+            <div className="empty-state">No bags currently awaiting automated dispatch.</div>
           ) : (
             <div className="queue-list">
-              {queue.map((bag, idx) => (
-                <div key={bag.baggageId} className="queue-item">
-                  <div className="queue-rank">{idx + 1}</div>
-                  <div className="queue-info">
-                    <div className="queue-id">{bag.baggageId}</div>
-                    <div className="queue-meta">
-                      {bag.flightId} · {bag.category} · Cutoff {fmtTime(bag.cutoffTime)}
+              {queue.map((bag, idx) => {
+                const status = bag.baggageProcessingStatus || bag.status || 'READY';
+                return (
+                  <div key={bag.baggageId} className="queue-item">
+                    <div className="queue-rank">{idx + 1}</div>
+                    <div className="queue-info">
+                      <div className="queue-id">{bag.baggageId} ({bag.bagType})</div>
+                      <div className="queue-meta">
+                        {bag.flightNumber || bag.assignedFlightId} · {bag.passengerCategory} · Cutoff {fmtTime(bag.loadingCutoff)}
+                      </div>
                     </div>
+                    <span className={`badge badge-${status}`}>{status.replace('_', ' ')}</span>
                   </div>
-                  <span className={`badge badge-${bag.status}`}>{bag.status.replace('_', ' ')}</span>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>
@@ -176,29 +181,29 @@ export default function Dashboard() {
       {stats && (
         <div className="card">
           <div className="card-header">
-            <span className="card-title">📈 System Metrics</span>
+            <span className="card-title">📈 Conveyor Infrastructure Health</span>
           </div>
           <div style={{ display: 'flex', gap: 32, flexWrap: 'wrap' }}>
             <div className="info-item">
-              <span className="info-label">Boarding Flights</span>
-              <span className="info-value" style={{ color: 'var(--accent-amber)', fontSize: 20, fontWeight: 700 }}>
-                {stats.boardingFlights}
+              <span className="info-label">Active Segments</span>
+              <span className="info-value" style={{ color: 'var(--accent-green)', fontSize: 20, fontWeight: 700 }}>
+                {stats.activeSegmentCount} / {stats.activeSegmentCount + stats.failedSegmentCount}
               </span>
             </div>
             <div className="info-item">
-              <span className="info-label">Avg Routing Time</span>
-              <span className="info-value" style={{ color: 'var(--accent-teal)', fontSize: 20, fontWeight: 700 }}>
-                {stats.avgRoutingTimeSeconds}s
+              <span className="info-label">Offline / Failed</span>
+              <span className="info-value" style={{ color: stats.failedSegmentCount > 0 ? 'var(--accent-red)' : 'var(--text-muted)', fontSize: 20, fontWeight: 700 }}>
+                {stats.failedSegmentCount} {stats.failedSegmentCount > 0 ? '(SEG-06 Offline)' : ''}
               </span>
             </div>
             <div className="info-item">
-              <span className="info-label">Unreachable</span>
-              <span className="info-value" style={{ color: 'var(--accent-red)', fontSize: 20, fontWeight: 700 }}>
-                {stats.unreachableCount}
+              <span className="info-label">Checkpoints / Nodes</span>
+              <span className="info-value" style={{ color: 'var(--accent-blue)', fontSize: 20, fontWeight: 700 }}>
+                {stats.nodeCount}
               </span>
             </div>
             <div className="info-item">
-              <span className="info-label">Load Rate</span>
+              <span className="info-label">Aircraft Loading Progress</span>
               <span className="info-value" style={{ color: 'var(--accent-green)', fontSize: 20, fontWeight: 700 }}>
                 {stats.totalBaggage > 0
                   ? Math.round((stats.loadedCount / stats.totalBaggage) * 100)

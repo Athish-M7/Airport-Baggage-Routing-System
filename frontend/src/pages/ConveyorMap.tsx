@@ -93,16 +93,20 @@ export default function ConveyorMap() {
   const handleSegmentHover = (seg: ConveyorSegmentDto, e: React.MouseEvent) => {
     const rect = svgRef.current?.getBoundingClientRect();
     if (!rect) return;
-    const fromNode = nodeMap.get(seg.fromNodeId);
-    const toNode   = nodeMap.get(seg.toNodeId);
+    const fromId = seg.sourceNode || seg.fromNodeId || '';
+    const toId = seg.destinationNode || seg.toNodeId || '';
+    const fromNode = nodeMap.get(fromId);
+    const toNode   = nodeMap.get(toId);
+    const fromName = fromNode?.nodeName || fromNode?.name || fromId;
+    const toName = toNode?.nodeName || toNode?.name || toId;
     setTooltip({
       x: e.clientX - rect.left,
       y: e.clientY - rect.top - 10,
-      text: `${seg.segmentId}: ${fromNode?.name ?? seg.fromNodeId} → ${toNode?.name ?? seg.toNodeId} · ${seg.travelTimeSeconds}s · ${seg.available ? 'Available' : 'OFFLINE'} · Click to toggle`,
+      text: `${seg.segmentId}: ${fromName} → ${toName} · ${seg.travelTimeSeconds}s · ${seg.available ? 'Available' : 'OFFLINE'} · Click to toggle`,
     });
   };
 
-  const nodeTypes = Array.from(new Set(nodes.map(n => n.type)));
+  const nodeTypes = Array.from(new Set(nodes.map(n => n.nodeType || n.type || 'JUNCTION')));
 
   if (loading) return (
     <div className="loading-container">
@@ -196,8 +200,10 @@ export default function ConveyorMap() {
 
             {/* Segments */}
             {segments.map(seg => {
-              const from = posMap.get(seg.fromNodeId);
-              const to   = posMap.get(seg.toNodeId);
+              const fromId = seg.sourceNode || seg.fromNodeId || '';
+              const toId   = seg.destinationNode || seg.toNodeId || '';
+              const from = posMap.get(fromId);
+              const to   = posMap.get(toId);
               if (!from || !to) return null;
 
               const color  = seg.available ? '#00c851' : '#ff4444';
@@ -248,8 +254,8 @@ export default function ConveyorMap() {
             {nodes.map(node => {
               const pos = posMap.get(node.nodeId);
               if (!pos) return null;
-              const color = NODE_COLORS[node.type] ?? '#888';
-              const load  = node.capacity > 0 ? node.currentLoad / node.capacity : 0;
+              const color = NODE_COLORS[node.nodeType || node.type || 'JUNCTION'] ?? '#888';
+              const displayName = node.nodeName || node.name || node.nodeId;
 
               return (
                 <g key={node.nodeId} style={{ cursor: 'default' }}>
@@ -262,19 +268,6 @@ export default function ConveyorMap() {
                     stroke={color}
                     strokeWidth={2.5}
                   />
-                  {/* Load arc */}
-                  {node.capacity > 0 && (
-                    <circle
-                      cx={pos.x} cy={pos.y}
-                      r={NODE_RADIUS - 4}
-                      fill="none"
-                      stroke={load > 0.8 ? '#ff4444' : load > 0.5 ? '#ffbb00' : '#00c851'}
-                      strokeWidth={3}
-                      strokeDasharray={`${load * 2 * Math.PI * (NODE_RADIUS - 4)} ${2 * Math.PI * (NODE_RADIUS - 4)}`}
-                      strokeDashoffset={`${0.25 * 2 * Math.PI * (NODE_RADIUS - 4)}`}
-                      opacity={0.7}
-                    />
-                  )}
                   {/* Node ID label inside */}
                   <text
                     x={pos.x} y={pos.y + 4}
@@ -284,7 +277,7 @@ export default function ConveyorMap() {
                     fontWeight="700"
                     style={{ pointerEvents: 'none', userSelect: 'none' }}
                   >
-                    {node.nodeId.replace('NODE-', '').replace('N', '')}
+                    {node.nodeId}
                   </text>
                   {/* Name label below */}
                   <text
@@ -294,7 +287,7 @@ export default function ConveyorMap() {
                     fontSize="9"
                     style={{ pointerEvents: 'none', userSelect: 'none' }}
                   >
-                    {node.name.length > 12 ? node.name.slice(0, 12) + '…' : node.name}
+                    {displayName.length > 14 ? displayName.slice(0, 14) + '…' : displayName}
                   </text>
                 </g>
               );
@@ -371,16 +364,21 @@ export default function ConveyorMap() {
               </tr>
             </thead>
             <tbody>
-              {segments.map(seg => (
-                <tr key={seg.segmentId} style={{ cursor: 'default' }}>
-                  <td className="td-mono">{seg.segmentId}</td>
-                  <td>{nodeMap.get(seg.fromNodeId)?.name ?? seg.fromNodeId}</td>
-                  <td>{nodeMap.get(seg.toNodeId)?.name ?? seg.toNodeId}</td>
-                  <td>{seg.travelTimeSeconds}s</td>
-                  <td>{seg.distanceMeters}m</td>
-                  <td style={{ color: seg.bidirectional ? 'var(--accent-green)' : 'var(--text-muted)' }}>
-                    {seg.bidirectional ? '⇄ Yes' : '→ No'}
-                  </td>
+              {segments.map(seg => {
+                const src = seg.sourceNode || seg.fromNodeId || '';
+                const dst = seg.destinationNode || seg.toNodeId || '';
+                const srcNode = nodeMap.get(src);
+                const dstNode = nodeMap.get(dst);
+                return (
+                  <tr key={seg.segmentId} style={{ cursor: 'default' }}>
+                    <td className="td-mono">{seg.segmentId}</td>
+                    <td>{srcNode?.nodeName || srcNode?.name || src}</td>
+                    <td>{dstNode?.nodeName || dstNode?.name || dst}</td>
+                    <td>{seg.travelTimeSeconds}s</td>
+                    <td>{seg.distanceMeters ? `${seg.distanceMeters}m` : '—'}</td>
+                    <td style={{ color: seg.bidirectional ? 'var(--accent-green)' : 'var(--text-muted)' }}>
+                      {seg.bidirectional ? '⇄ Yes' : '→ Directed'}
+                    </td>
                   <td>
                     <span className={`badge ${seg.available ? 'badge-READY' : 'badge-MISSED_CUTOFF'}`}>
                       {seg.available ? 'ONLINE' : 'OFFLINE'}
@@ -396,7 +394,8 @@ export default function ConveyorMap() {
                     </button>
                   </td>
                 </tr>
-              ))}
+              );
+            })}
             </tbody>
           </table>
         </div>

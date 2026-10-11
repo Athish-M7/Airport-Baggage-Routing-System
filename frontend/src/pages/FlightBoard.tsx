@@ -2,7 +2,8 @@ import { useEffect, useState, useCallback } from 'react';
 import { api } from '../api/client';
 import type { FlightDto, BaggageDto } from '../types';
 
-function fmtTime(iso: string): string {
+function fmtTime(iso: string | undefined): string {
+  if (!iso) return '—';
   try { return new Date(iso).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }); }
   catch { return iso; }
 }
@@ -32,11 +33,11 @@ export default function FlightBoard() {
   const loadFlights = useCallback(async () => {
     try {
       const data = await api.getAllFlights();
-      setFlights(data as FlightDto[]);
+      setFlights(Array.isArray(data) ? (data as FlightDto[]) : []);
       setError(null);
       setLastRefresh(new Date());
     } catch {
-      setError('Failed to load flights.');
+      setError('Failed to load flight operations board.');
     } finally {
       setLoading(false);
     }
@@ -44,7 +45,7 @@ export default function FlightBoard() {
 
   useEffect(() => {
     loadFlights();
-    const id = setInterval(loadFlights, 12000);
+    const id = setInterval(loadFlights, 10000);
     return () => clearInterval(id);
   }, [loadFlights]);
 
@@ -58,7 +59,7 @@ export default function FlightBoard() {
     setLoadingBags(true);
     try {
       const bags = await api.getBaggageByFlight(f.flightId);
-      setFlightBags(bags as BaggageDto[]);
+      setFlightBags(Array.isArray(bags) ? (bags as BaggageDto[]) : []);
     } catch {
       setFlightBags([]);
     } finally {
@@ -69,14 +70,16 @@ export default function FlightBoard() {
   const statusClass = (status: string) => `badge badge-${status}`;
 
   const sortedFlights = [...flights].sort((a, b) => {
-    const order: Record<string, number> = { BOARDING: 0, DELAYED: 1, SCHEDULED: 2, DEPARTED: 3, CANCELLED: 4 };
-    return (order[a.status] ?? 5) - (order[b.status] ?? 5);
+    const order: Record<string, number> = { BOARDING: 0, DELAYED: 1, SCHEDULED: 2, DEPARTED: 3 };
+    const statusA = a.flightStatus || a.status || 'SCHEDULED';
+    const statusB = b.flightStatus || b.status || 'SCHEDULED';
+    return (order[statusA] ?? 5) - (order[statusB] ?? 5);
   });
 
   if (loading) return (
     <div className="loading-container">
       <div className="spinner" />
-      <span>Loading flight board…</span>
+      <span>Connecting to Flight Information Display System…</span>
     </div>
   );
 
@@ -84,9 +87,9 @@ export default function FlightBoard() {
     <div>
       <div className="fids-header">
         <div>
-          <div className="fids-title">✈ Vaanam Airport — Departures</div>
+          <div className="fids-title">✈ Vaanam Airport — Flight Departure Board</div>
           <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4, letterSpacing: 1 }}>
-            FLIGHT INFORMATION DISPLAY SYSTEM
+            REAL-TIME FLIGHT INFORMATION DISPLAY SYSTEM (FIDS)
           </div>
         </div>
         <FIDSClock />
@@ -94,12 +97,12 @@ export default function FlightBoard() {
 
       <div className="page-header">
         <div>
-          <div className="page-subtitle">{flights.length} flights · Last updated {lastRefresh.toLocaleTimeString()}</div>
+          <div className="page-subtitle">{flights.length} active scheduled flights · Live synchronised {lastRefresh.toLocaleTimeString()}</div>
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
           <div className="refresh-indicator">
             <div className="refresh-dot" />
-            <span>Auto-refresh 12s</span>
+            <span>Auto-refresh 10s</span>
           </div>
           <button className="btn btn-ghost btn-sm" onClick={loadFlights}>↻ Refresh</button>
         </div>
@@ -112,81 +115,70 @@ export default function FlightBoard() {
           <table>
             <thead>
               <tr>
-                <th>Flight</th>
+                <th>Flight No</th>
                 <th>Destination</th>
-                <th>Departure</th>
-                <th>Cutoff</th>
-                <th>Bay / Gate</th>
-                <th>Status</th>
-                <th>Bags Loaded</th>
+                <th>Scheduled Departure</th>
+                <th>Luggage Cutoff</th>
+                <th>Pier / Bay</th>
+                <th>Operation Status</th>
               </tr>
             </thead>
             <tbody>
               {sortedFlights.length === 0 ? (
                 <tr style={{ cursor: 'default' }}>
-                  <td colSpan={7} className="empty-state">No flights scheduled</td>
+                  <td colSpan={6} className="empty-state">No scheduled flights found</td>
                 </tr>
-              ) : sortedFlights.map(f => (
-                <tr
-                  key={f.flightId}
-                  className={`${f.status === 'BOARDING' ? 'boarding-row' : ''} ${selectedFlight?.flightId === f.flightId ? 'expanded' : ''}`}
-                  onClick={() => selectFlight(f)}
-                >
-                  <td>
-                    <div style={{ fontFamily: 'monospace', fontWeight: 700, fontSize: 15, color: 'var(--accent-amber)', letterSpacing: 1 }}>
-                      {f.flightNumber}
-                    </div>
-                    <div style={{ fontSize: 10, color: 'var(--text-muted)' }}>{f.flightId}</div>
-                  </td>
-                  <td>
-                    <div style={{ fontWeight: 600 }}>{f.destination}</div>
-                    <div style={{ fontSize: 12, color: 'var(--accent-teal)' }}>{f.destinationCode}</div>
-                  </td>
-                  <td style={{ fontFamily: 'monospace', fontSize: 15, fontWeight: 700, letterSpacing: 1 }}>
-                    {fmtTime(f.departureTime)}
-                  </td>
-                  <td style={{ color: 'var(--accent-amber)', fontFamily: 'monospace' }}>
-                    {fmtTime(f.baggageCutoffTime)}
-                  </td>
-                  <td>
-                    <div style={{ color: 'var(--accent-green)', fontWeight: 700 }}>{f.boardingGate}</div>
-                    <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{f.baggageBayNode}</div>
-                  </td>
-                  <td><span className={statusClass(f.status)}>{f.status}</span></td>
-                  <td>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <span>
-                        <span style={{ color: 'var(--accent-green)', fontWeight: 700, fontSize: 16 }}>{f.loadedCount}</span>
-                        <span style={{ color: 'var(--text-muted)' }}> / {f.baggageCount}</span>
+              ) : sortedFlights.map(f => {
+                const status = f.flightStatus || f.status || 'SCHEDULED';
+                const isSelected = selectedFlight?.flightId === f.flightId;
+                return (
+                  <tr
+                    key={f.flightId}
+                    className={`${status === 'BOARDING' ? 'boarding-row' : ''} ${isSelected ? 'expanded' : ''}`}
+                    style={{ cursor: 'pointer' }}
+                    onClick={() => selectFlight(f)}
+                  >
+                    <td>
+                      <div style={{ fontFamily: 'monospace', fontWeight: 700, fontSize: 15, color: 'var(--accent-amber)', letterSpacing: 1 }}>
+                        {f.flightNumber}
+                      </div>
+                      <div style={{ fontSize: 10, color: 'var(--text-muted)' }}>{f.flightId}</div>
+                    </td>
+                    <td>
+                      <div style={{ fontWeight: 600, fontSize: 14 }}>{f.destination}</div>
+                    </td>
+                    <td style={{ fontFamily: 'monospace', fontSize: 15, fontWeight: 700, letterSpacing: 1 }}>
+                      {fmtTime(f.departureTime)}
+                    </td>
+                    <td style={{ color: 'var(--accent-amber)', fontFamily: 'monospace', fontWeight: 700 }}>
+                      {fmtTime(f.loadingCutoff)}
+                    </td>
+                    <td>
+                      <span className="badge" style={{ background: '#1c314e', color: '#64b5f6', fontWeight: 700, fontSize: 12 }}>
+                        {f.assignedBayId} ({f.bayName})
                       </span>
-                      {f.baggageCount > 0 && (
-                        <div className="progress-bar" style={{ width: 60 }}>
-                          <div
-                            className="progress-fill"
-                            style={{
-                              width: `${(f.loadedCount / f.baggageCount) * 100}%`,
-                              background: f.loadedCount === f.baggageCount ? 'var(--accent-green)' : 'var(--accent-blue)',
-                            }}
-                          />
-                        </div>
-                      )}
-                    </div>
-                  </td>
-                </tr>
-              ))}
+                    </td>
+                    <td>
+                      <span className={statusClass(status)}>
+                        {status}
+                      </span>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
       </div>
 
-      {/* Selected flight baggage */}
+      {/* Selected flight baggage manifest */}
       {selectedFlight && (
-        <div className="card">
+        <div className="card" style={{ border: '2px solid var(--accent-amber)' }}>
           <div className="card-header">
             <div>
-              <span className="card-title">🧳 Baggage for {selectedFlight.flightNumber}</span>
+              <span className="card-title">🧳 Luggage Manifest for Flight {selectedFlight.flightNumber}</span>
               <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>
-                {selectedFlight.destination} · Departs {fmtTime(selectedFlight.departureTime)} · Cutoff {fmtTime(selectedFlight.baggageCutoffTime)}
+                {selectedFlight.destination} · Departs {fmtTime(selectedFlight.departureTime)} · Loading Cutoff {fmtTime(selectedFlight.loadingCutoff)} · {selectedFlight.assignedBayId}
               </div>
             </div>
             <button className="btn btn-ghost btn-sm" onClick={() => { setSelectedFlight(null); setFlightBags([]); }}>✕ Close</button>
@@ -195,10 +187,10 @@ export default function FlightBoard() {
           {loadingBags ? (
             <div className="loading-container" style={{ minHeight: 100 }}>
               <div className="spinner" />
-              <span>Loading bags…</span>
+              <span>Fetching baggage manifest…</span>
             </div>
           ) : flightBags.length === 0 ? (
-            <div className="empty-state">No baggage found for this flight</div>
+            <div className="empty-state">No baggage found for this flight.</div>
           ) : (
             <div className="table-container">
               <table>
@@ -207,26 +199,50 @@ export default function FlightBoard() {
                     <th>Bag ID</th>
                     <th>Type</th>
                     <th>Category</th>
-                    <th>Status</th>
-                    <th>Location</th>
-                    <th>Clearance</th>
-                    <th>Weight</th>
+                    <th>Current Checkpoint</th>
+                    <th>Processing Status</th>
+                    <th>Security Clearance</th>
+                    <th>Planned Conveyor Route</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {flightBags.map(b => (
-                    <tr key={b.baggageId} style={{ cursor: 'default' }}>
-                      <td className="td-mono">{b.baggageId}</td>
-                      <td><span className="badge badge-STANDARD" style={{ fontSize: 10 }}>{b.baggageType}</span></td>
-                      <td><span className={`badge badge-${b.category}`}>{b.category}</span></td>
-                      <td><span className={`badge badge-${b.status}`}>{b.status.replace(/_/g, ' ')}</span></td>
-                      <td>{b.currentNodeName || b.currentNodeId}</td>
-                      <td className={b.clearanceGranted ? 'clearance-yes' : 'clearance-no'}>
-                        {b.clearanceGranted ? '✓ Granted' : '✗ Pending'}
-                      </td>
-                      <td>{b.weightKg} kg</td>
-                    </tr>
-                  ))}
+                  {flightBags.map(b => {
+                    const status = b.baggageProcessingStatus || b.status || 'READY';
+                    const hasClearance = b.operatorClearance ?? false;
+                    return (
+                      <tr key={b.baggageId} style={{ cursor: 'default' }}>
+                        <td className="td-mono">{b.baggageId}</td>
+                        <td>
+                          <span className={`badge badge-${b.bagType === 'TRANSFER' ? 'TRANSFER' : 'STANDARD'}`}>
+                            {b.bagType || (b.transferStatus ? 'TRANSFER' : 'ORIGIN')}
+                          </span>
+                        </td>
+                        <td>
+                          <span className={`badge badge-${b.passengerCategory || b.category || 'ECONOMY'}`}>
+                            {b.passengerCategory || b.category}
+                          </span>
+                        </td>
+                        <td>
+                          <span className="badge" style={{ background: '#193050', color: '#90caf9' }}>
+                            {b.currentLocation}
+                          </span>
+                        </td>
+                        <td>
+                          <span className={`badge badge-${status}`}>
+                            {status.replace(/_/g, ' ')}
+                          </span>
+                        </td>
+                        <td>
+                          <span className={hasClearance ? 'clearance-yes' : 'clearance-no'} style={{ fontWeight: 600 }}>
+                            {hasClearance ? '✓ Cleared' : '✗ Awaiting'}
+                          </span>
+                        </td>
+                        <td style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
+                          {b.plannedRoute || 'None'}
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
@@ -235,8 +251,8 @@ export default function FlightBoard() {
       )}
 
       <div style={{ marginTop: 12, display: 'flex', gap: 12, flexWrap: 'wrap', fontSize: 11, color: 'var(--text-muted)' }}>
-        <span>● Click a row to view its baggage manifest</span>
-        <span>· Sorted: Boarding → Delayed → Scheduled → Departed</span>
+        <span>● Click any flight row to view its real-time baggage manifest</span>
+        <span>· Priority order: Boarding → Delayed → Scheduled</span>
       </div>
     </div>
   );
