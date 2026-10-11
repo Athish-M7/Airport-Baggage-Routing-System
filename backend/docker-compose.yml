@@ -1,0 +1,36 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: vaanam_postgres
+    restart: always
+    environment:
+      POSTGRES_DB: vaanam_baggage_db
+      POSTGRES_USER: vaanam_user
+      POSTGRES_PASSWORD: vaanam_secure_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U vaanam_user -d vaanam_baggage_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # Optional pgAdmin for database inspection
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: vaanam_pgadmin
+    restart: always
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@vaanam.aero
+      PGADMIN_DEFAULT_PASSWORD: admin
+    ports:
+      - "5050:80"
+    depends_on:
+      - postgres
+
+volumes:
+  pgdata:

@@ -1,0 +1,28 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: vaanam-baggage-routing-system
+  profiles:
+    active: ${SPRING_PROFILES_ACTIVE:default}
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/vaanam_baggage_db}
+    username: ${SPRING_DATASOURCE_USERNAME:vaanam_user}
+    password: ${SPRING_DATASOURCE_PASSWORD:vaanam_secure_password}
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: true
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+
+# Simulation initial parameters
+vaanam:
+  simulation:
+    start-time: "2026-10-12T08:00:00"
+    speed-multiplier: 1
+    cutoff-lead-minutes: 45
