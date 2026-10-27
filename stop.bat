@@ -1,12 +1,24 @@
 @echo off
-title Vaanam Airport - Stop All Services
-echo Stopping Vaanam Airport services...
+title Vaanam Airport System - Shutdown
+color 0c
 
-echo Freeing port 8080 (Backend)...
-for /f "tokens=5" %%a in ('netstat -aon ^| findstr :8080 ^| findstr LISTENING') do taskkill /f /pid %%a 2>nul
+echo ==============================================================================
+echo    VAANAM AIRPORT SYSTEM - SHUTTING DOWN SERVERS (PORTS 8080 & 5173)
+echo ==============================================================================
+echo.
 
-echo Freeing port 5173 (Frontend)...
-for /f "tokens=5" %%a in ('netstat -aon ^| findstr :5173 ^| findstr LISTENING') do taskkill /f /pid %%a 2>nul
+echo Stopping backend process on port 8080...
+for /f "tokens=5" %%a in ('netstat -aon ^| findstr :8080 ^| findstr LISTENING') do (
+    taskkill /F /PID %%a >nul 2>&1
+)
 
-echo All services stopped cleanly.
+echo Stopping frontend process on port 5173...
+for /f "tokens=5" %%a in ('netstat -aon ^| findstr :5173 ^| findstr LISTENING') do (
+    taskkill /F /PID %%a >nul 2>&1
+)
+
+echo.
+echo All airport servers have been cleanly stopped.
+echo ==============================================================================
+echo.
 pause
