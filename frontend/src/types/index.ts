@@ -137,3 +137,34 @@ export interface RoutingRecord {
   timestamp: string;
   routingResult: string;
 }
+
+export interface CreateBaggageRequest {
+  baggageId?: string;
+  bagType: 'ORIGIN' | 'TRANSFER';
+  flightId: string;
+  ingestionNode: string;
+  passengerCategory: PassengerCategory;
+  operatorClearance: boolean;
+}
+
+export interface CreateFlightRequest {
+  flightId?: string;
+  flightNumber: string;
+  destination: string;
+  departureTime: string;
+  loadingCutoff?: string;
+  assignedBayId: string;
+  flightStatus?: FlightStatus;
+}
+
+export interface DatabaseStatusDto {
+  connected: boolean;
+  databaseProductName: string;
+  databaseProductVersion: string;
+  databaseUrl: string;
+  driverName: string;
+  pingLatencyMs: number;
+  serverTime: string;
+  tableCounts: Record<string, number>;
+}
+

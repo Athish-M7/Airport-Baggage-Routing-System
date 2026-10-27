@@ -1,28 +1,13 @@
 import { useEffect, useState, useCallback } from 'react';
+import { Link } from 'react-router-dom';
 import { api } from '../api/client';
 import type { DashboardStatsDto, FlightDto, BaggageDto } from '../types';
 
 function fmtTime(iso: string | undefined): string {
   if (!iso) return '—';
   try {
-    return new Date(iso).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+    return new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true });
   } catch { return iso; }
-}
-
-interface StatCardProps {
-  label: string;
-  value: number;
-  color: string;
-  icon: string;
-}
-
-function StatCard({ label, value, color, icon }: StatCardProps) {
-  return (
-    <div className={`stat-card ${color}`}>
-      <div className="stat-value">{value ?? 0}</div>
-      <div className="stat-label">{icon} {label}</div>
-    </div>
-  );
 }
 
 export default function Dashboard() {
@@ -46,7 +31,7 @@ export default function Dashboard() {
       setError(null);
       setLastRefresh(new Date());
     } catch {
-      setError('Connecting to Vaanam Airport backend API...');
+      setError('Unable to load dashboard data. Please verify backend is running.');
     } finally {
       setLoading(false);
     }
@@ -58,59 +43,81 @@ export default function Dashboard() {
     return () => clearInterval(id);
   }, [loadData]);
 
-  const flightStatusColor = (status: string | undefined) => {
-    switch (status) {
-      case 'BOARDING':   return 'var(--accent-amber)';
-      case 'SCHEDULED':  return 'var(--accent-blue)';
-      case 'DEPARTED':   return '#666';
-      case 'DELAYED':    return 'var(--accent-red)';
-      default:           return 'var(--text-muted)';
-    }
-  };
-
   if (loading) {
     return (
       <div className="loading-container">
         <div className="spinner" />
-        <span>Connecting to Operations Dashboard…</span>
+        <span>Loading airport operations dashboard…</span>
       </div>
     );
   }
 
   return (
     <div>
+      {/* Page Header */}
       <div className="page-header">
         <div>
-          <div className="page-title">📊 Operations Dashboard</div>
-          <div className="page-subtitle">Vaanam Airport — Real-time baggage routing & throughput monitoring</div>
+          <div className="page-title">📊 Airport Operations Overview</div>
+          <div className="page-subtitle">Real-time status of luggage routing and flight departures</div>
         </div>
         <div className="refresh-indicator">
           <div className="refresh-dot" />
-          <span>Live Sync 5s · {lastRefresh.toLocaleTimeString()}</span>
+          <span>Live Sync · {lastRefresh.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true })}</span>
         </div>
       </div>
 
       {error && <div className="error-box">⚠️ {error}</div>}
 
+      {/* 4 Clean Primary KPI Cards */}
       {stats && (
         <div className="stats-grid">
-          <StatCard label="Total Luggage"     value={stats.totalBaggage}           color="blue"   icon="🧳" />
-          <StatCard label="Ready for Transit" value={stats.readyCount}             color="green"  icon="✅" />
-          <StatCard label="On Conveyor Belts" value={stats.inTransitCount}         color="teal"   icon="🚚" />
-          <StatCard label="At Risk (< Cutoff)"value={stats.atRiskCount}            color="amber"  icon="⚠️" />
-          <StatCard label="Loaded on Flights" value={stats.loadedCount}            color="gray"   icon="📦" />
-          <StatCard label="Missed Cutoff"     value={stats.missedCutoffCount}      color="red"    icon="🚨" />
-          <StatCard label="Awaiting Security" value={stats.awaitingClearanceCount} color="orange" icon="🔒" />
-          <StatCard label="Scheduled Flights" value={stats.flightCount}            color="purple" icon="✈️" />
+          <div className="stat-card blue">
+            <div className="stat-value">{stats.totalBaggage}</div>
+            <div className="stat-label">🧳 Total Luggage Items</div>
+          </div>
+          <div className="stat-card amber">
+            <div className="stat-value">{stats.inTransitCount + stats.readyCount}</div>
+            <div className="stat-label">🚚 Active on Conveyor Belts</div>
+          </div>
+          <div className="stat-card green">
+            <div className="stat-value">{stats.loadedCount}</div>
+            <div className="stat-label">✅ Loaded on Aircraft</div>
+          </div>
+          <div className="stat-card purple">
+            <div className="stat-value">{stats.flightCount}</div>
+            <div className="stat-label">✈️ Scheduled Flights</div>
+          </div>
         </div>
       )}
 
-      <div className="two-col" style={{ marginBottom: 20 }}>
-        {/* Flights overview */}
+      {/* Quick Action Navigation Bar */}
+      <div style={{ display: 'flex', gap: 12, marginBottom: 24, flexWrap: 'wrap' }}>
+        <Link to="/baggage" className="btn btn-primary" style={{ padding: '10px 18px', fontSize: 14 }}>
+          ➕ Check-In New Luggage
+        </Link>
+        <Link to="/flights" className="btn btn-ghost" style={{ padding: '10px 18px', fontSize: 14 }}>
+          ✈️ Flight Schedule Board
+        </Link>
+        <Link to="/conveyor" className="btn btn-ghost" style={{ padding: '10px 18px', fontSize: 14 }}>
+          🛤️ Conveyor Belt Map
+        </Link>
+        <Link to="/track" className="btn btn-ghost" style={{ padding: '10px 18px', fontSize: 14, borderColor: 'var(--accent-teal)', color: 'var(--accent-teal)' }}>
+          📱 Passenger Tracker & QR Tag
+        </Link>
+        <Link to="/database" className="btn btn-ghost" style={{ padding: '10px 18px', fontSize: 14 }}>
+          🗄️ Database Explorer
+        </Link>
+      </div>
+
+      {/* Two Column Layout: Flights & Dispatch Queue */}
+      <div className="two-col">
+        {/* Scheduled Flights */}
         <div className="card">
           <div className="card-header">
-            <span className="card-title">✈️ Scheduled Flights</span>
-            <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>{flights.length} flights scheduled</span>
+            <span className="card-title">✈️ Scheduled Departures</span>
+            <Link to="/flights" style={{ fontSize: 12, color: 'var(--accent-blue)', textDecoration: 'none' }}>
+              View All ➔
+            </Link>
           </div>
           <div className="table-container">
             <table>
@@ -119,28 +126,22 @@ export default function Dashboard() {
                   <th>Flight</th>
                   <th>Destination</th>
                   <th>Departure</th>
-                  <th>Cutoff</th>
-                  <th>Loading Bay</th>
+                  <th>Bay Gate</th>
                   <th>Status</th>
                 </tr>
               </thead>
               <tbody>
                 {flights.length === 0 ? (
-                  <tr><td colSpan={6} className="empty-state">No flight data available</td></tr>
-                ) : flights.map(f => {
+                  <tr><td colSpan={5} className="empty-state">No flights scheduled</td></tr>
+                ) : flights.map((f) => {
                   const status = f.flightStatus || f.status || 'SCHEDULED';
                   return (
-                    <tr key={f.flightId} style={{ cursor: 'default' }}>
-                      <td className="td-mono">{f.flightNumber}</td>
-                      <td>{f.destination}</td>
+                    <tr key={f.flightId}>
+                      <td className="td-mono" style={{ color: 'var(--accent-blue)' }}>{f.flightNumber}</td>
+                      <td style={{ fontWeight: 500 }}>{f.destination}</td>
                       <td>{fmtTime(f.departureTime)}</td>
-                      <td>{fmtTime(f.loadingCutoff)}</td>
-                      <td><span className="badge" style={{ background: '#1c314e', color: '#64b5f6' }}>{f.assignedBayId} ({f.bayName})</span></td>
-                      <td>
-                        <span className="badge" style={{ color: flightStatusColor(status), border: `1px solid ${flightStatusColor(status)}40`, background: `${flightStatusColor(status)}18` }}>
-                          {status}
-                        </span>
-                      </td>
+                      <td><span className="badge badge-gray">{f.assignedBayId}</span></td>
+                      <td><span className={`badge badge-${status}`}>{status}</span></td>
                     </tr>
                   );
                 })}
@@ -149,27 +150,60 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* Dispatch Queue */}
+        {/* Priority Dispatch Queue */}
         <div className="card">
           <div className="card-header">
-            <span className="card-title">🚦 Priority Dispatch Queue (Top 5)</span>
+            <span className="card-title">🚦 Priority Dispatch Queue</span>
+            <Link to="/baggage" style={{ fontSize: 12, color: 'var(--accent-blue)', textDecoration: 'none' }}>
+              Manage Bags ➔
+            </Link>
           </div>
           {queue.length === 0 ? (
-            <div className="empty-state">No bags currently awaiting automated dispatch.</div>
+            <div className="empty-state">No bags currently awaiting dispatch.</div>
           ) : (
-            <div className="queue-list">
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
               {queue.map((bag, idx) => {
                 const status = bag.baggageProcessingStatus || bag.status || 'READY';
                 return (
-                  <div key={bag.baggageId} className="queue-item">
-                    <div className="queue-rank">{idx + 1}</div>
-                    <div className="queue-info">
-                      <div className="queue-id">{bag.baggageId} ({bag.bagType})</div>
-                      <div className="queue-meta">
-                        {bag.flightNumber || bag.assignedFlightId} · {bag.passengerCategory} · Cutoff {fmtTime(bag.loadingCutoff)}
+                  <div
+                    key={bag.baggageId}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      padding: '10px 14px',
+                      background: 'rgba(255, 255, 255, 0.03)',
+                      borderRadius: 'var(--radius-sm)',
+                      border: '1px solid rgba(255, 255, 255, 0.06)',
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                      <span
+                        style={{
+                          width: 24,
+                          height: 24,
+                          borderRadius: '50%',
+                          background: 'var(--accent-blue)',
+                          color: '#fff',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          fontSize: 11,
+                          fontWeight: 700,
+                        }}
+                      >
+                        {idx + 1}
+                      </span>
+                      <div>
+                        <div style={{ fontWeight: 600, fontSize: 13 }}>{bag.baggageId}</div>
+                        <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>
+                          {bag.flightNumber || bag.assignedFlightId} · {bag.passengerCategory}
+                        </div>
                       </div>
                     </div>
-                    <span className={`badge badge-${status}`}>{status.replace('_', ' ')}</span>
+                    <span className={`badge badge-${status}`}>
+                      {status.replace(/_/g, ' ')}
+                    </span>
                   </div>
                 );
               })}
@@ -177,42 +211,6 @@ export default function Dashboard() {
           )}
         </div>
       </div>
-
-      {stats && (
-        <div className="card">
-          <div className="card-header">
-            <span className="card-title">📈 Conveyor Infrastructure Health</span>
-          </div>
-          <div style={{ display: 'flex', gap: 32, flexWrap: 'wrap' }}>
-            <div className="info-item">
-              <span className="info-label">Active Segments</span>
-              <span className="info-value" style={{ color: 'var(--accent-green)', fontSize: 20, fontWeight: 700 }}>
-                {stats.activeSegmentCount} / {stats.activeSegmentCount + stats.failedSegmentCount}
-              </span>
-            </div>
-            <div className="info-item">
-              <span className="info-label">Offline / Failed</span>
-              <span className="info-value" style={{ color: stats.failedSegmentCount > 0 ? 'var(--accent-red)' : 'var(--text-muted)', fontSize: 20, fontWeight: 700 }}>
-                {stats.failedSegmentCount} {stats.failedSegmentCount > 0 ? '(SEG-06 Offline)' : ''}
-              </span>
-            </div>
-            <div className="info-item">
-              <span className="info-label">Checkpoints / Nodes</span>
-              <span className="info-value" style={{ color: 'var(--accent-blue)', fontSize: 20, fontWeight: 700 }}>
-                {stats.nodeCount}
-              </span>
-            </div>
-            <div className="info-item">
-              <span className="info-label">Aircraft Loading Progress</span>
-              <span className="info-value" style={{ color: 'var(--accent-green)', fontSize: 20, fontWeight: 700 }}>
-                {stats.totalBaggage > 0
-                  ? Math.round((stats.loadedCount / stats.totalBaggage) * 100)
-                  : 0}%
-              </span>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

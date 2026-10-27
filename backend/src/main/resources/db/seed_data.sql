@@ -104,3 +104,11 @@ INSERT INTO baggage (baggage_id, bag_type, assigned_flight_id, current_location,
 -- BAG-9902: At risk bag (Cutoff very close compared to remaining travel time)
 ('BAG-9902', 'TRANSFER', 'FL-101', 'TRF-1', 'BAY-01', 'ECONOMY', 4, true, 32, '2026-10-12 08:14:00', true, 'AT_RISK', 'TRF-1 -> JNC-B -> SEC-2 -> JNC-C -> BAY-01', 185, '2026-10-12 08:16:30', 'TRF-1')
 ON CONFLICT (baggage_id) DO NOTHING;
+
+-- 6. Airport Staff Personnel
+INSERT INTO airport_staff (badge_id, full_name, username, department, staff_role, avatar_icon, password_pin, created_at) VALUES
+('OPS-742', 'Officer Arun Kumar', 'ops_lead', 'Baggage Operations Center', 'Operations Lead', '👨‍✈️', 'vaanam2026', '2026-10-12 08:00:00'),
+('SEC-310', 'Officer Priya Raman', 'sec_officer', 'Aviation X-Ray & Screening', 'Security Controller', '🛡️', 'vaanam2026', '2026-10-12 08:00:00'),
+('BAY-108', 'Supervisor Rajesh M.', 'bay_manager', 'Apron & Loading Bays', 'Ramp Supervisor', '🏗️', 'vaanam2026', '2026-10-12 08:00:00')
+ON CONFLICT (badge_id) DO NOTHING;
+

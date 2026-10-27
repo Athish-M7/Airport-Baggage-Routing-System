@@ -1,61 +1,60 @@
 import { useEffect, useState } from 'react';
-import { NavLink } from 'react-router-dom';
-import { api } from '../api/client';
-import type { SimulationStateDto } from '../types';
+import { NavLink, useNavigate } from 'react-router-dom';
+import VaanamLogo from './VaanamLogo';
+import { useAuth } from '../context/AuthContext';
 
 const navItems = [
-  { to: '/',           icon: '📊', label: 'Dashboard' },
-  { to: '/baggage',    icon: '🧳', label: 'Baggage' },
-  { to: '/flights',    icon: '✈️',  label: 'Flights' },
-  { to: '/conveyor',   icon: '🛤️',  label: 'Conveyor' },
-  { to: '/simulation', icon: '⏱️',  label: 'Simulation' },
-  { to: '/routing',    icon: '🗺️',  label: 'Route Calc' },
+  { to: '/',         icon: '📊', label: 'Dashboard' },
+  { to: '/baggage',  icon: '🧳', label: 'Baggage' },
+  { to: '/flights',  icon: '✈️',  label: 'Flights' },
+  { to: '/conveyor', icon: '🛤️',  label: 'Conveyor' },
+  { to: '/routing',  icon: '🗺️',  label: 'Route Calc' },
+  { to: '/database', icon: '🗄️', label: 'Database' },
+  { to: '/track',    icon: '📱', label: 'Passenger Tag' },
 ];
 
-function formatSimTime(isoStr: string): string {
-  try {
-    const d = new Date(isoStr);
-    if (isNaN(d.getTime())) return '--:--:--';
-    return d.toLocaleTimeString('en-GB', { hour12: false });
-  } catch {
-    return '--:--:--';
-  }
-}
-
-function formatSimDate(isoStr: string): string {
-  try {
-    const d = new Date(isoStr);
-    if (isNaN(d.getTime())) return '';
-    return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
-  } catch {
-    return '';
-  }
-}
-
 export default function Sidebar() {
-  const [simState, setSimState] = useState<SimulationStateDto | null>(null);
+  const { user, logout } = useAuth();
+  const navigate = useNavigate();
+  const [clock, setClock] = useState<Date>(new Date());
 
   useEffect(() => {
-    const load = () => {
-      api.getSimulationState()
-        .then(data => setSimState(data as SimulationStateDto))
-        .catch(() => { /* silent */ });
-    };
-    load();
-    const id = setInterval(load, 5000);
-    return () => clearInterval(id);
+    // Tick every second using local computer real time
+    const tick = () => setClock(new Date());
+    tick();
+    const timerId = setInterval(tick, 1000);
+    return () => clearInterval(timerId);
   }, []);
+
+  const time12 = clock.toLocaleTimeString(undefined, {
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: true,
+  });
+
+  const time24 = clock.toLocaleTimeString(undefined, {
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false,
+  });
+
+  const dateFormatted = clock.toLocaleDateString(undefined, {
+    weekday: 'short',
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+  });
 
   return (
     <aside className="sidebar">
       <div className="sidebar-logo">
-        <div className="sidebar-logo-icon">✈️</div>
-        <div className="sidebar-logo-name">Vaanam</div>
-        <div className="sidebar-logo-sub">Baggage Routing System</div>
+        <VaanamLogo size={40} />
       </div>
 
       <nav className="sidebar-nav">
-        {navItems.map(item => (
+        {navItems.map((item) => (
           <NavLink
             key={item.to}
             to={item.to}
@@ -68,25 +67,96 @@ export default function Sidebar() {
         ))}
       </nav>
 
+      {/* Local System Clock */}
       <div className="sidebar-clock">
-        <div className="sidebar-clock-label">Sim Clock</div>
-        <div className="sidebar-clock-time">
-          {simState ? formatSimTime(simState.currentSimulatedTime || simState.simulationTime || '') : '--:--:--'}
+        <div className="sidebar-clock-label">Local System Clock</div>
+        <div
+          className="sidebar-clock-time"
+          style={{ fontSize: '15px', fontWeight: 700, color: 'var(--accent-teal)', letterSpacing: '0.5px' }}
+        >
+          {time12}
         </div>
-        {simState && (
-          <>
-            <div style={{ fontSize: '10px', color: 'var(--text-dim)', marginTop: 2 }}>
-              {formatSimDate(simState.currentSimulatedTime || simState.simulationTime || '')}
-            </div>
-            <div className="sidebar-clock-speed">
-              {simState.speedMultiplier}x speed
-            </div>
-            <div className={`sidebar-clock-status ${simState.running ? 'sim-running' : 'sim-paused'}`}>
-              {simState.running ? '● Running' : '⏸ Paused'}
-            </div>
-          </>
-        )}
+        <div style={{ fontSize: '11px', color: 'var(--text-secondary)', marginTop: 2, fontFamily: 'monospace' }}>
+          {time24} (24h)
+        </div>
+        <div style={{ fontSize: '10px', color: 'var(--text-muted)', marginTop: 4 }}>
+          {dateFormatted}
+        </div>
+        <div className="sidebar-clock-status sim-running" style={{ marginTop: 6 }}>
+          ● Live Synchronized
+        </div>
       </div>
+
+      {/* Staff User Profile & Logout */}
+      {user && (
+        <div
+          style={{
+            padding: '12px 14px',
+            borderTop: '1px solid var(--border-color)',
+            background: 'rgba(0, 0, 0, 0.3)',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 8,
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <div
+              style={{
+                width: 32,
+                height: 32,
+                borderRadius: '50%',
+                background: 'rgba(56, 189, 248, 0.15)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: 16,
+                flexShrink: 0,
+              }}
+            >
+              {user.avatarIcon || '👨‍✈️'}
+            </div>
+            <div style={{ overflow: 'hidden', flex: 1 }}>
+              <div
+                style={{
+                  fontSize: 12,
+                  fontWeight: 700,
+                  color: '#fff',
+                  whiteSpace: 'nowrap',
+                  textOverflow: 'ellipsis',
+                  overflow: 'hidden',
+                }}
+              >
+                {user.name}
+              </div>
+              <div style={{ fontSize: 10, color: 'var(--accent-teal)', fontFamily: 'monospace' }}>
+                {user.badgeId} · {user.role}
+              </div>
+            </div>
+          </div>
+          <button
+            onClick={() => {
+              logout();
+              navigate('/login');
+            }}
+            style={{
+              padding: '6px 10px',
+              fontSize: 11,
+              borderRadius: 6,
+              background: 'rgba(239, 68, 68, 0.12)',
+              border: '1px solid rgba(239, 68, 68, 0.3)',
+              color: '#f87171',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 6,
+              fontWeight: 600,
+            }}
+          >
+            🔒 Sign Out
+          </button>
+        </div>
+      )}
     </aside>
   );
 }

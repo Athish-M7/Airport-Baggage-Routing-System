@@ -65,6 +65,20 @@ State transitions enforce airport operational safety rules:
 * `IN_TRANSIT` ➔ `MISSED_CUTOFF`: Flagged automatically if luggage fails to reach the loading bay prior to the flight cutoff deadline.
 * `IN_TRANSIT` ➔ `UNREACHABLE`: Triggered when unexpected downstream network closures sever all valid paths to the destination pier.
 
+### 4. Passenger Mobile Luggage Tracking with Live QR Code
+* Bridges internal apron operations with the public passenger experience.
+* Every baggage check-in generates an authentic digital boarding baggage pass with a live scannable QR tag.
+* Scanning with any smartphone camera opens `/track?id=BAG-XXXX` with a 4-stage visual journey stepper (Check-in ➔ Conveyor ➔ X-Ray Screening ➔ Loaded) auto-polling every 3 seconds.
+
+### 5. Airport Staff Authentication & Onboarding
+* High-security operator login terminal (`/login`) with session persistence.
+* Onboards new airport staff personnel (`/register`) into the database `airport_staff` table with badge ID generation and avatar customization.
+* 1-Click quick demo logins for presentation efficiency.
+
+### 6. Relational Database Diagnostics & Live Explorer
+* Live diagnostics dashboard (`/database`) monitoring latency, active connection status, and row metrics.
+* Real-time table browser supporting `baggage`, `flights`, `conveyor_segments`, `conveyor_nodes`, and `airport_staff`.
+
 ---
 
 ## 📁 Repository Structure
@@ -77,33 +91,41 @@ State transitions enforce airport operational safety rules:
 │   │   ├── BaggageRoutingApplication.java    # Spring Boot Main Class
 │   │   ├── algorithm/                        # Adjacency Graph and RouteResult
 │   │   ├── config/                           # CORS, Exception Handling, DataInitializer
-│   │   ├── controller/                       # REST Endpoints (/api/baggage, /flights, etc.)
+│   │   ├── controller/                       # REST Endpoints (/api/baggage, /flights, /staff, etc.)
 │   │   ├── dto/                              # Request / Response transfer objects
-│   │   ├── model/                            # Domain Entities (Baggage, Flight, Node, etc.)
+│   │   ├── model/                            # Domain Entities (Baggage, Flight, Node, Staff, etc.)
 │   │   ├── repository/                       # Spring Data JPA Repositories
-│   │   └── service/                          # Dijkstra routing, priority queue, simulation
+│   │   └── service/                          # Dijkstra routing, priority queue, database diagnostics
 │   ├── src/main/resources/
 │   │   ├── application.yml                   # PostgreSQL Configuration
 │   │   ├── application-h2.yml                # In-Memory H2 Configuration
 │   │   └── db/
-│   │       ├── schema.sql                    # Relational schema definition
-│   │       └── seed_data.sql                 # 12 Nodes, 17 Segments, 4 Flights, 32 Bags
+│   │       ├── schema.sql                    # Relational schema definition (incl. airport_staff)
+│   │       └── seed_data.sql                 # Nodes, Segments, Flights, Baggage, Staff
 │   └── src/test/java/com/vaanam/baggage/
 │       └── BaggageRoutingSystemTests.java    # 18 JUnit 5 Automated Business Rule Tests
 │
 ├── frontend/
-│   ├── package.json                          # React 18, TypeScript 5, Vite 5, React Router 6
-│   ├── vite.config.ts                        # Proxy configuration forwarding /api to :8080
+│   ├── package.json                          # React 18, TypeScript 5, Vite 5, React Router 6, QRCode
+│   ├── vite.config.ts                        # Network host & proxy configuration forwarding /api to :8080
 │   ├── src/
 │   │   ├── api/client.ts                     # Typed REST Client
-│   │   ├── components/Sidebar.tsx            # Navigation and live simulation clock
+│   │   ├── components/
+│   │   │   ├── Sidebar.tsx                   # Navigation, system clock, active staff profile
+│   │   │   ├── VaanamLogo.tsx                # Custom SVG airport branding emblem
+│   │   │   ├── PassengerQrModal.tsx          # Real-time QR code generator modal
+│   │   │   └── ProtectedRoute.tsx            # Route security guard for staff-only pages
+│   │   ├── context/
+│   │   │   └── AuthContext.tsx               # Staff authentication & account management
 │   │   ├── pages/
-│   │   │   ├── Dashboard.tsx                 # High-level KPIs, Flight overview & Queue
-│   │   │   ├── BaggageManagement.tsx         # Filterable baggage table with actions
+│   │   │   ├── Dashboard.tsx                 # High-level KPIs, Flight overview & Dispatch Queue
+│   │   │   ├── BaggageManagement.tsx         # Full baggage CRUD, check-in, scan & QR tag launch
 │   │   │   ├── FlightBoard.tsx               # Airport FIDS Flight status board
 │   │   │   ├── ConveyorMap.tsx               # Interactive SVG Conveyor topology
-│   │   │   ├── SimulationControls.tsx        # Time speed, pause/play, time jumps
-│   │   │   └── RoutingCalculator.tsx         # Interactive Dijkstra route tester
+│   │   │   ├── RoutingCalculator.tsx         # Interactive Dijkstra route tester
+│   │   │   ├── DatabaseStatus.tsx            # Live database table explorer
+│   │   │   ├── StaffLogin.tsx                # Staff sign-in & onboarding registration
+│   │   │   └── PassengerTracker.tsx          # Mobile passenger luggage tracking pass
 │   │   ├── types/index.ts                    # TypeScript interface definitions
 │   │   └── App.css                           # Professional airport operations theme
 └── README.md

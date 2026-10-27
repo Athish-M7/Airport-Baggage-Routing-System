@@ -72,6 +72,17 @@ CREATE TABLE IF NOT EXISTS simulation_state (
     speed_multiplier INT NOT NULL DEFAULT 1
 );
 
+CREATE TABLE IF NOT EXISTS airport_staff (
+    badge_id VARCHAR(50) PRIMARY KEY,
+    full_name VARCHAR(100) NOT NULL,
+    username VARCHAR(50) NOT NULL UNIQUE,
+    department VARCHAR(100) NOT NULL,
+    staff_role VARCHAR(100) NOT NULL,
+    avatar_icon VARCHAR(50) NOT NULL DEFAULT '👨‍✈️',
+    password_pin VARCHAR(100) NOT NULL DEFAULT 'vaanam2026',
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
 -- Indices for performance
 CREATE INDEX IF NOT EXISTS idx_baggage_flight ON baggage(assigned_flight_id);
 CREATE INDEX IF NOT EXISTS idx_baggage_status ON baggage(baggage_processing_status);

@@ -17,28 +17,33 @@ public class SimulationService {
     private static final LocalDateTime INITIAL_TIME = LocalDateTime.of(2026, 10, 12, 8, 15, 0);
 
     private LocalDateTime simulatedTime;
+    private boolean useSystemClock = true;
     private boolean running;
     private int speedMultiplier;
 
     @PostConstruct
     public void init() {
-        this.simulatedTime = INITIAL_TIME;
+        this.simulatedTime = LocalDateTime.now();
+        this.useSystemClock = true;
         this.running = true;
         this.speedMultiplier = 1;
     }
 
     /**
-     * Returns the current virtual simulated time.
+     * Returns the current real-time or virtual simulated time.
      */
     public LocalDateTime getCurrentTime() {
+        if (useSystemClock) {
+            return LocalDateTime.now();
+        }
         return simulatedTime;
     }
 
     /**
-     * Returns a DTO snapshot of the current simulation state.
+     * Returns a DTO snapshot of the current state.
      */
     public SimulationStateDto getState() {
-        return new SimulationStateDto(simulatedTime, running, speedMultiplier);
+        return new SimulationStateDto(getCurrentTime(), running, speedMultiplier);
     }
 
     /**
@@ -85,6 +90,7 @@ public class SimulationService {
      * @return updated simulation state
      */
     public SimulationStateDto resetToStart() {
+        this.useSystemClock = false;
         this.simulatedTime = INITIAL_TIME;
         this.running = true;
         this.speedMultiplier = 1;

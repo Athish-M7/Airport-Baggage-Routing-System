@@ -1,8 +1,10 @@
 package com.vaanam.baggage.controller;
 
+import com.vaanam.baggage.dto.CreateFlightRequestDto;
 import com.vaanam.baggage.dto.FlightDto;
 import com.vaanam.baggage.model.FlightStatus;
 import com.vaanam.baggage.service.FlightService;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -25,6 +27,19 @@ public class FlightController {
     @GetMapping
     public ResponseEntity<List<FlightDto>> getAllFlights() {
         return ResponseEntity.ok(flightService.getAllFlights());
+    }
+
+    /** POST /api/flights — schedule / create a new flight */
+    @PostMapping
+    public ResponseEntity<FlightDto> createFlight(@RequestBody CreateFlightRequestDto dto) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(flightService.createFlight(dto));
+    }
+
+    /** DELETE /api/flights/{id} — remove flight */
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> deleteFlight(@PathVariable String id) {
+        flightService.deleteFlight(id);
+        return ResponseEntity.noContent().build();
     }
 
     /** GET /api/flights/{id} — single flight by ID */

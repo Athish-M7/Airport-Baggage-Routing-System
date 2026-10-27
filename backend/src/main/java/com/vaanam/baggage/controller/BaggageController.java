@@ -1,11 +1,13 @@
 package com.vaanam.baggage.controller;
 
 import com.vaanam.baggage.dto.BaggageDto;
+import com.vaanam.baggage.dto.CreateBaggageRequestDto;
 import com.vaanam.baggage.dto.ScanEventDto;
 import com.vaanam.baggage.model.BaggageStatus;
 import com.vaanam.baggage.model.RoutingRecord;
 import com.vaanam.baggage.service.BaggageQueueService;
 import com.vaanam.baggage.service.BaggageService;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -30,6 +32,19 @@ public class BaggageController {
     @GetMapping
     public ResponseEntity<List<BaggageDto>> getAllBaggage() {
         return ResponseEntity.ok(baggageService.getAllBaggage());
+    }
+
+    /** POST /api/baggage — manual check-in / create baggage */
+    @PostMapping
+    public ResponseEntity<BaggageDto> createBaggage(@RequestBody CreateBaggageRequestDto dto) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(baggageService.createBaggage(dto));
+    }
+
+    /** DELETE /api/baggage/{id} — remove baggage */
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> deleteBaggage(@PathVariable String id) {
+        baggageService.deleteBaggage(id);
+        return ResponseEntity.noContent().build();
     }
 
     /** GET /api/baggage/queue — priority-ordered dispatch queue */

@@ -3,11 +3,14 @@ package com.vaanam.baggage.service;
 import com.vaanam.baggage.algorithm.RouteResult;
 import com.vaanam.baggage.dto.BaggageDto;
 import com.vaanam.baggage.model.*;
+import com.vaanam.baggage.dto.CreateBaggageRequestDto;
 import com.vaanam.baggage.repository.BaggageRepository;
+import com.vaanam.baggage.repository.FlightRepository;
 import com.vaanam.baggage.repository.RoutingRecordRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.stream.Collectors;
@@ -20,15 +23,18 @@ import java.util.stream.Collectors;
 public class BaggageService {
 
     private final BaggageRepository baggageRepo;
+    private final FlightRepository flightRepo;
     private final RoutingRecordRepository routingRecordRepo;
     private final DijkstraRoutingService dijkstraService;
     private final SimulationService simulationService;
 
     public BaggageService(BaggageRepository baggageRepo,
+                          FlightRepository flightRepo,
                           RoutingRecordRepository routingRecordRepo,
                           DijkstraRoutingService dijkstraService,
                           SimulationService simulationService) {
         this.baggageRepo = baggageRepo;
+        this.flightRepo = flightRepo;
         this.routingRecordRepo = routingRecordRepo;
         this.dijkstraService = dijkstraService;
         this.simulationService = simulationService;
@@ -177,6 +183,107 @@ public class BaggageService {
         routingRecordRepo.save(record);
 
         return BaggageDto.fromBaggage(b);
+    }
+
+    // ---- Create / Ingest Baggage ----
+
+    public BaggageDto createBaggage(CreateBaggageRequestDto dto) {
+        if (dto == null) {
+            throw new IllegalArgumentException("Baggage request must not be null");
+        }
+        Flight flight = flightRepo.findById(dto.flightId())
+                .orElseThrow(() -> new NoSuchElementException("Assigned flight not found with id: " + dto.flightId()));
+
+        LoadingBay destinationBay = flight.getAssignedLoadingBay();
+        if (destinationBay == null) {
+            throw new IllegalStateException("Flight " + flight.getFlightNumber() + " has no assigned loading bay");
+        }
+
+        String bagId = (dto.baggageId() != null && !dto.baggageId().trim().isEmpty())
+                ? dto.baggageId().trim().toUpperCase()
+                : "BAG-" + (System.currentTimeMillis() % 1000000);
+
+        String ingestionNode = dto.ingestionNode() != null ? dto.ingestionNode().trim().toUpperCase() : "CHK-1";
+        String bayNode = destinationBay.getNodeId();
+
+        RouteResult routeResult = dijkstraService.findShortestPath(ingestionNode, bayNode);
+        String plannedRoute = routeResult.getFormattedRoute();
+        int travelTime = routeResult.isSuccess() ? routeResult.getTotalTravelTime() : 0;
+
+        BaggageStatus initialStatus;
+        if (!routeResult.isSuccess()) {
+            initialStatus = BaggageStatus.UNREACHABLE;
+        } else if (dto.operatorClearance()) {
+            initialStatus = BaggageStatus.READY;
+        } else {
+            initialStatus = BaggageStatus.AWAITING_CLEARANCE;
+        }
+
+        int rank = dto.passengerCategory() != null ? dto.passengerCategory().getRank() : 4;
+        int arrivalOrder = (int) baggageRepo.count() + 1;
+        LocalDateTime arrivalTime = simulationService.getCurrentTime();
+        LocalDateTime loadingCutoff = flight.getLoadingCutoff();
+
+        Baggage bag;
+        boolean isTransfer = "TRANSFER".equalsIgnoreCase(dto.bagType());
+        if (isTransfer) {
+            bag = new TransferBag(
+                    bagId,
+                    flight,
+                    ingestionNode,
+                    destinationBay,
+                    dto.passengerCategory(),
+                    rank,
+                    arrivalOrder,
+                    arrivalTime,
+                    dto.operatorClearance(),
+                    initialStatus,
+                    plannedRoute,
+                    travelTime,
+                    loadingCutoff,
+                    ingestionNode
+            );
+        } else {
+            bag = new OriginBag(
+                    bagId,
+                    flight,
+                    ingestionNode,
+                    destinationBay,
+                    dto.passengerCategory(),
+                    rank,
+                    arrivalOrder,
+                    arrivalTime,
+                    dto.operatorClearance(),
+                    initialStatus,
+                    plannedRoute,
+                    travelTime,
+                    loadingCutoff,
+                    ingestionNode
+            );
+        }
+
+        Baggage saved = baggageRepo.save(bag);
+
+        RoutingRecord record = new RoutingRecord(
+                bagId,
+                null,
+                plannedRoute,
+                ingestionNode,
+                travelTime,
+                "INITIAL_CHECK_IN",
+                arrivalTime,
+                routeResult.getStatus()
+        );
+        routingRecordRepo.save(record);
+
+        return BaggageDto.fromBaggage(saved);
+    }
+
+    public void deleteBaggage(String baggageId) {
+        if (!baggageRepo.existsById(baggageId)) {
+            throw new NoSuchElementException("Baggage not found with id: " + baggageId);
+        }
+        baggageRepo.deleteById(baggageId);
     }
 
     // ---- Helper ----
