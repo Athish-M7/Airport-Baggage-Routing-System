@@ -5,7 +5,7 @@ spring:
   application:
     name: vaanam-baggage-routing-system
   profiles:
-    active: ${SPRING_PROFILES_ACTIVE:default}
+    active: ${SPRING_PROFILES_ACTIVE:h2}
   datasource:
     url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/vaanam_baggage_db}
     username: ${SPRING_DATASOURCE_USERNAME:vaanam_user}
