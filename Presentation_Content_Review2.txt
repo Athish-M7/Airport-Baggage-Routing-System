@@ -1,0 +1,209 @@
+================================================================================
+KONGU ENGINEERING COLLEGE (AUTONOMOUS), PERUNDURAI, ERODE – 638 060
+DEPARTMENT OF COMPUTER SCIENCE AND ENGINEERING
+24GEP31 - MINI PROJECT - I
+REVIEW – 2 PRESENTATION CONTENT
+BATCH NO: A13
+================================================================================
+
+TITLE OF THE PROJECT:
+INTELLIGENT AIRPORT BAGGAGE HANDLING AND ROUTING SYSTEM
+
+PROJECT BY:
+Athish M & Team
+Department of Computer Science and Engineering,
+Kongu Engineering College
+
+GUIDED BY:
+Assistant Professor,
+Department of Computer Science and Engineering,
+Kongu Engineering College
+
+================================================================================
+SLIDE 1: TITLE SLIDE
+================================================================================
+KONGU ENGINEERING COLLEGE
+— TRANSFORM YOURSELF —
+Department of Computer Science and Engineering
+
+24GEP31-Mini Project-I
+REVIEW–2
+BATCH NO: A13
+
+INTELLIGENT AIRPORT BAGGAGE HANDLING AND ROUTING SYSTEM
+
+Project by:
+Athish M & Team
+
+Guided by:
+Assistant Professor,
+Department of CSE,
+Kongu Engineering College
+
+================================================================================
+SLIDE 2: PROJECT AREA UNDER SDG
+================================================================================
+1. SDG 9 – Industry, Innovation, and Infrastructure
+   Uses modern web technology, automated conveyor networks, and graph optimization algorithms for airport baggage logistics.
+
+2. SDG 11 – Sustainable Cities and Communities
+   Supports efficient airport transport infrastructure, minimizing flight turnaround delays and ground logistics congestion.
+
+3. SDG 12 – Responsible Consumption and Production
+   Promotes efficient conveyor belt energy management and minimizes lost or misdirected passenger luggage.
+
+================================================================================
+SLIDE 3: PROJECT AREA
+================================================================================
+The project focuses on using web technology to simplify airport baggage handling and conveyor logistics management.
+
+● Web Application: User-friendly interface for managing baggage operations and flight schedules.
+● Database Management: Organized storage and retrieval of baggage, flight, and conveyor network information.
+● Baggage-to-Aircraft Linkage: Connects terminal check-in desks, security screening stations, and aircraft loading bays.
+
+================================================================================
+SLIDE 4: PROBLEM DEFINITION & SCOPE
+================================================================================
+PROBLEM STATEMENT:
+Manual baggage tracking and unexpected conveyor jams can delay aircraft departures and increase mishandled luggage. A centralized web application helps route, prioritize, and monitor airport baggage logistics efficiently.
+
+TARGET USERS / STAKEHOLDERS:
+❏ Baggage Operations Staff
+❏ Check-In Counter Agents
+❏ Aviation Security & Screening Officers
+❏ Apron & Loading Bay Supervisors
+❏ Traveling Airline Passengers
+
+================================================================================
+SLIDE 5: OBJECTIVES & EXPECTED OUTCOMES
+================================================================================
+OBJECTIVES:
+1. To develop a user-friendly frontend for managing airport baggage routing and flight schedules.
+2. To manage baggage, flight, conveyor node, and loading bay information efficiently.
+3. To connect the application with a database for organized data storage and retrieval.
+4. To optimize baggage conveyor routing using Dijkstra's shortest-path algorithm and support live passenger tracking.
+
+EXPECTED OUTCOMES:
+The system aims to reduce baggage transfer delays, prevent missed loading cutoffs, and make optimal use of conveyor infrastructure. It also ensures that passenger luggage reaches the assigned aircraft on time.
+
+================================================================================
+SLIDE 6: TECHNICAL APPROACH & FEASIBILITY
+================================================================================
+FRONTEND:
+● React, TypeScript, and CSS
+● Interactive and user-friendly web interface
+● SVG for conveyor network visualization and QR code tracking
+
+BACKEND:
+● Java & Spring Boot for application development
+● Business logic and 4-tier priority queue data processing
+● Dijkstra's algorithm for shortest-path calculation
+
+DATABASE:
+● H2 / PostgreSQL for structured relational data storage
+● Spring Data JPA & Hibernate for database connectivity
+● Data insertion, retrieval, and updating
+
+================================================================================
+SLIDE 7: SYSTEM ARCHITECTURE / METHODOLOGY
+================================================================================
+Input:
+● The system collects baggage details, flight schedules, conveyor network topology, and cutoff deadlines.
+
+Processing:
+● The collected information is processed to prioritize bags using a 4-tier comparator, compute optimal paths using Dijkstra's algorithm, and verify security clearances.
+
+Database:
+● The relevant information is stored and retrieved through the database for efficient data management.
+
+================================================================================
+SLIDE 8: SYSTEM ARCHITECTURE / METHODOLOGY (CONTD.)
+================================================================================
+● The system displays baggage routing plans, conveyor network status, and flight bay assignments to support better planning.
+
+Output:
+● The system displays dispatch priorities, conveyor failover paths, gate bay status, and real-time passenger tracking to support airport ground handling operations.
+
+================================================================================
+SLIDE 9: PROJECT PLANNING & TIMELINE
+================================================================================
+REVIEW – 3:
+● Implementation of staff authentication, baggage management, and flight board modules.
+● Integration of Dijkstra’s shortest-path algorithm and dynamic rerouting failover.
+● Development of interactive SVG conveyor network mapping and route visualization.
+● Testing of 4-tier priority dispatch queue, passenger QR tracking, and end-to-end system functionality.
+
+================================================================================
+SLIDE 10: IMPLEMENTED MODULES
+================================================================================
+● Staff Authentication: Maintains authorized staff credentials and restricted airside portal access.
+● Baggage Management: Records checked-in luggage, passenger categories, and processing status.
+● Flight Management: Maintains flight destinations, departure times, and loading bay assignments.
+● Conveyor Management: Stores conveyor nodes, belts, travel times, and segment availability status.
+● Priority Dispatch: Sequences luggage using a 4-tier comparator (cutoff, transfer, class, arrival).
+● Route Optimization: Calculates the shortest conveyor path using Dijkstra's algorithm.
+● Passenger Tracking: Displays a digital boarding luggage tag with live scannable QR code.
+● Database Management: Supports organized storage, retrieval, and live inspection of system records.
+
+================================================================================
+SLIDE 11: DATABASE CONNECTIVITY
+================================================================================
+● Uses H2 / PostgreSQL for centralized storage of airport logistics information.
+● Establishes database connectivity through Spring Data JPA & Hibernate.
+● Stores baggage, flight, conveyor segment, loading bay, and staff records.
+● Supports insertion, retrieval, and updating of records.
+● Maintains organized information for apron, security, and sorting operations.
+● Provides database information required for baggage routing and loading planning.
+
+================================================================================
+SLIDE 12: RESULTS
+================================================================================
+● Developed a web-based airport baggage handling and routing system.
+● Organized baggage, flight, conveyor segment, and staff information.
+● Established relational database connectivity through Spring Data JPA.
+● Implemented shortest-path calculation using Dijkstra's algorithm, verified with 18 automated tests.
+● Integrated interactive SVG network topology and live passenger QR mobile tracking.
+● Supported airport shipment planning, priority dispatching, and resource management.
+
+================================================================================
+SLIDE 13: CONCLUSION
+================================================================================
+● Simplifies airport baggage record management through a centralized digital platform.
+● Improves coordination between check-in desks, security screening, and aircraft loading bays.
+● Supports shortest-route calculation, dynamic rerouting, and conveyor visualization.
+● Provides a foundation for organized airport baggage dispatch and flight delay prevention.
+
+================================================================================
+SLIDE 14: REFERENCES
+================================================================================
+1. [1] E. W. Dijkstra, “A note on two problems in connexion with graphs,” Numerische Mathematik, vol. 1, pp. 269–271, 1959. [Online]. Available: https://link.springer.com/article/10.1007/BF01386390
+2. [2] Oracle, “Java Platform, Standard Edition Documentation (Java 21),” Oracle. [Online]. Available: https://docs.oracle.com/en/java/javase/21/docs/api/
+3. [3] Spring Boot Team, “Spring Boot Reference Documentation (v3.3.4),” VMware Tanzu. [Online]. Available: https://docs.spring.io/spring-boot/
+4. [4] Mozilla, “Web Technology for Developers (React & TypeScript),” MDN Web Docs. [Online]. Available: https://developer.mozilla.org/en-US/docs/Web
+5. [5] H2 Database Engine, “H2 Database Engine Reference Manual,” [Online]. Available: https://www.h2database.com/html/main.html
+
+================================================================================
+SLIDE 15: WORK PLAN
+================================================================================
++------------------+-------------------------------------------------------------+
+| Review           | Work to be carried out                                      |
++------------------+-------------------------------------------------------------+
+| ZEROTH REVIEW    | Problem identification and project planning.                |
++------------------+-------------------------------------------------------------+
+| FIRST REVIEW     | Initial project modules, graph representations, and data    |
+|                  | structures.                                                 |
++------------------+-------------------------------------------------------------+
+| SECOND REVIEW    | ● Frontend web application development.                     |
+|                  | ● Database connectivity.                                    |
+|                  | ● Data storage and retrieval.                               |
++------------------+-------------------------------------------------------------+
+| THIRD REVIEW     | ● Final testing and validation.                             |
+|                  | ● Complete remaining features (QR tracking & failover).     |
+|                  | ● Documentation and report preparation.                     |
++------------------+-------------------------------------------------------------+
+
+================================================================================
+SLIDE 16: THANK YOU
+================================================================================
+THANK YOU
+================================================================================
